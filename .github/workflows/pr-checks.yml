@@ -22,8 +22,8 @@ jobs:
         run: ./gradlew --no-daemon ktfmtCheck
       - name: Static analysis, unit tests, coverage, and debug package
         run: ./gradlew --no-daemon verify
-      - name: Secret scan
-        uses: gitleaks/gitleaks-action@v2
+      - name: Run Gitleaks CLI via Docker
+        run: docker run --rm -v ${{ github.workspace }}:/path ghcr.io/gitleaks/gitleaks:latest detect --source=/path --verbose
       - name: Upload reports on failure
         if: failure()
         uses: actions/upload-artifact@v4
