@@ -1,0 +1,26 @@
+# Android/Gradle build output and local IDE state
+.gradle/
+build/
+**/build/
+.idea/
+*.iml
+local.properties
+
+# Local Android SDK and emulator artifacts
+.android/
+captures/
+*.keystore
+*.jks
+
+# Reports and logs
+reports/
+*.log
+
+# Environment files and release material
+.env
+.env.*
+!.env.example
+secrets/
+
+# Operating system files
+.DS_Store

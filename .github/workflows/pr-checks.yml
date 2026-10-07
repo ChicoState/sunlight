@@ -1,0 +1,55 @@
+name: Pull request checks
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew scripts/infrastructure-smoke.sh
+      - name: Verify formatting
+        run: ./gradlew --no-daemon ktfmtCheck
+      - name: Static analysis, unit tests, coverage, and debug package
+        run: ./gradlew --no-daemon verify
+      - name: Run Gitleaks CLI via Docker
+        run: docker run --rm -v ${{ github.workspace }}:/path ghcr.io/gitleaks/gitleaks:latest detect --source=/path --verbose
+      - name: Upload reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-reports
+          path: |
+            **/build/reports/
+            **/build/test-results/
+          if-no-files-found: ignore
+
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: java-kotlin
+          build-mode: none
+      - uses: github/codeql-action/analyze@v4
+
+  ui-tests:
+    runs-on: ubuntu-latest
+    if: ${{ false }}
+    steps:
+      - run: echo "UI tests are intentionally deferred until application-owned Compose UI tests exist."
