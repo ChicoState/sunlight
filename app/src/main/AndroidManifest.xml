@@ -1,4 +1,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Infrastructure-only manifest. An application entrypoint is intentionally not created. -->
-    <application android:label="Sunlight" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera.front" android:required="true" />
+
+    <application android:label="Sunlight" android:theme="@style/Theme.Sunlight">
+        <activity
+            android:name=".SunlightActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
 </manifest>

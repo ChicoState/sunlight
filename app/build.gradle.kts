@@ -29,7 +29,12 @@ dependencies {
   androidTestImplementation(composeBom)
 
   implementation(libs.androidx.compose.ui)
+  implementation(libs.androidx.compose.foundation)
+  implementation(libs.androidx.activity.compose)
   implementation(libs.androidx.datastore.preferences)
+  implementation(libs.androidx.camera.camera2)
+  implementation(libs.androidx.camera.lifecycle)
+  implementation(libs.androidx.lifecycle.runtime.ktx)
   debugImplementation(libs.androidx.compose.ui.tooling)
 
   testImplementation(libs.junit)

@@ -1,6 +1,6 @@
 # Sunlight
 
-Android infrastructure is ready for application development; production application code and user-facing screens have not been created yet.
+Sunlight is an Android Focus app that keeps a dim red, screen-awake session open until a user-selected morning time. It then uses live front-camera brightness analysis and runs a final 15-minute countdown after bright light is detected.
 
 ## Repository map
 
@@ -31,7 +31,9 @@ No `.env` file or backend configuration is required. Do not commit signing keys;
 | `docker build --tag android-build-env:local .` | Build the pinned Android development image. |
 | `docker run --rm --user root -v "$PWD":/workspace -w /workspace android-build-env:local --no-daemon verify` | Run full verification in Docker. |
 
-The test commands currently validate the harness only: application code and UI tests have intentionally not been added.
+The app is self-contained: it has no accounts, backend, location collection, or network use. Camera frames are analyzed in memory only; it never records, stores, or transmits photos or video. A Focus session consumes battery because the screen stays on. Android system navigation remains available and the app provides a hold-to-end escape action; it is not a device lock.
+
+On first use, select the local time when camera checking should begin. The app requests camera permission when Focus starts. After the configured time, move the phone into direct sunlight; a brightness heuristic starts a fixed 15-minute final countdown. Bright artificial light can also satisfy the heuristic.
 
 ## GitHub release setup
 
