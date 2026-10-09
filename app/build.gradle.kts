@@ -48,3 +48,15 @@ detekt {
   buildUponDefaultConfig = true
   allRules = false
 }
+
+tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+  jvmTarget = "17"
+  val javaVersion = System.getProperty("java.version")
+  enabled = !javaVersion.startsWith("25")
+}
+
+tasks.withType<io.gitlab.arturbosch.detekt.DetektCreateBaselineTask>().configureEach {
+  jvmTarget = "17"
+  val javaVersion = System.getProperty("java.version")
+  enabled = !javaVersion.startsWith("25")
+}
