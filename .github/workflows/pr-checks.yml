@@ -23,7 +23,7 @@ jobs:
       - name: Static analysis, unit tests, coverage, and debug package
         run: ./gradlew --no-daemon verify
       - name: Secret scan
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
       - name: Upload reports on failure
         if: failure()
         uses: actions/upload-artifact@v4
