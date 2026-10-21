@@ -1,10 +1,11 @@
 package edu.sunlight.screentime
 
 import android.Manifest
-import android.app.TimePickerDialog
+import android.app.AlertDialog
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.WindowManager
+import android.widget.TimePicker
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -84,22 +85,28 @@ class SunlightActivity : ComponentActivity() {
 
   private fun chooseReleaseTime() {
     val current = releaseTime ?: LocalTime.of(DEFAULT_RELEASE_HOUR, 0)
-    TimePickerDialog(
-            this,
-            { _, hour, minute ->
-              releaseTime = LocalTime.of(hour, minute)
-              lifecycleScope.launch {
-                focusDataStore.edit { preferences ->
-                  preferences[releaseHourKey] = hour
-                  preferences[releaseMinuteKey] = minute
-                }
-              }
-              statusMessage = "Sunlight checking will begin at ${displayTime(releaseTime!!)}."
-            },
-            current.hour,
-            current.minute,
-            android.text.format.DateFormat.is24HourFormat(this),
-        )
+    val pickerView = layoutInflater.inflate(R.layout.release_time_picker, null)
+    val picker = pickerView.findViewById<TimePicker>(R.id.release_time_picker)
+    picker.setIs24HourView(false)
+    picker.hour = current.hour
+    picker.minute = current.minute
+    AlertDialog.Builder(this)
+        .setTitle("Sunlight check time")
+        .setView(pickerView)
+        .setNegativeButton(android.R.string.cancel, null)
+        .setPositiveButton("Set time") { _, _ ->
+          // Commit any keyboard edit before reading the native spinner's value.
+          picker.clearFocus()
+          val selected = LocalTime.of(picker.hour, picker.minute)
+          releaseTime = selected
+          lifecycleScope.launch {
+            focusDataStore.edit { preferences ->
+              preferences[releaseHourKey] = selected.hour
+              preferences[releaseMinuteKey] = selected.minute
+            }
+          }
+          statusMessage = "Sunlight checking will begin at ${displayTime(selected)}."
+        }
         .show()
   }
 

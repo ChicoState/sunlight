@@ -2,6 +2,8 @@
     <style name="Theme.Sunlight" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowActionModeOverlay">true</item>
-        <item name="android:colorAccent">#FF5C5C</item>
+        <item name="android:colorAccent">#DFBC7A</item>
+        <item name="android:colorBackgroundFloating">#1C1F1E</item>
+        <item name="android:windowBackground">#121414</item>
     </style>
 </resources>

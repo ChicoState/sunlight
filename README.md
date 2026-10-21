@@ -35,6 +35,8 @@ The app is self-contained: it has no accounts, backend, location collection, or 
 
 On first use, select the local time when camera checking should begin. The app requests camera permission when Focus starts. After the configured time, move the phone into direct sunlight; a brightness heuristic starts a fixed 15-minute final countdown. Bright artificial light can also satisfy the heuristic.
 
+The dark UI groups the clock, session stages, and instructions above the check-time control and primary action. Active Focus keeps its black background, red text, and dimmed display. See [UI design notes](docs/ui-design.md) for the sketch interpretation, accessibility decisions, research sources, and UI test command.
+
 ## GitHub release setup
 
 Create a protected `release` environment with `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEY_ALIAS`, `ANDROID_KEYSTORE_PASSWORD`, and `ANDROID_KEY_PASSWORD` secrets. The release workflow intentionally stops before publishing until a later application task wires secure APK signing into the module.
