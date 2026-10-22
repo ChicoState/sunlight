@@ -1,10 +1,10 @@
 # Sunlight
 
-Sunlight is an Android Focus app that keeps a dim red, screen-awake session open until a user-selected morning time. It then uses live front-camera brightness analysis and runs a final 15-minute countdown after bright light is detected.
+Sunlight is an Android morning-routine prototype. The intended experience is a wake-up alarm followed by a user-selected duration of regularly checked sunlight, with only user-allowed apps available until completion and a hold-to-unlock emergency exit. The current preview checks camera brightness once and then runs a timer; alarm ringing, app restrictions, and repeated sunlight checks are not implemented yet.
 
 ## Repository map
 
-- `app/` — Android module configuration and an intentionally entrypoint-free manifest.
+- `app/` — Android module, Compose UI, foreground camera preview flow, and tests.
 - `gradle/`, `build.gradle.kts`, and `settings.gradle.kts` — Gradle wrapper and build configuration.
 - `scripts/` — Infrastructure-only smoke test.
 - `Dockerfile` — Reproducible command-line Android build environment.
@@ -31,11 +31,15 @@ No `.env` file or backend configuration is required. Do not commit signing keys;
 | `docker build --tag android-build-env:local .` | Build the pinned Android development image. |
 | `docker run --rm --user root -v "$PWD":/workspace -w /workspace android-build-env:local --no-daemon verify` | Run full verification in Docker. |
 
-The app is self-contained: it has no accounts, backend, location collection, or network use. Camera frames are analyzed in memory only; it never records, stores, or transmits photos or video. A Focus session consumes battery because the screen stays on. Android system navigation remains available and the app provides a hold-to-end escape action; it is not a device lock.
+The app is self-contained: it has no accounts, backend, location collection, or network use. Camera frames are analyzed in memory only; it never records, stores, or transmits photos or video. A routine preview consumes battery because the screen stays on. Android system navigation remains available and the app provides a hold-to-exit escape action; it is not a device lock.
 
-On first use, select the local time when camera checking should begin. The app requests camera permission when Focus starts. After the configured time, move the phone into direct sunlight; a brightness heuristic starts a fixed 15-minute final countdown. Bright artificial light can also satisfy the heuristic.
+On Home, edit your wake-up time and sunlight duration in the same morning panel, then select **Try morning routine**. Duration defaults to 15 minutes and can be set from 1–120 minutes; it is saved locally and cannot change mid-routine. The app waits until the configured wake-up time (tomorrow if it has passed) before requesting camera permission or opening the camera. Sustained bright light starts the selected timer, then the camera stops. Bright artificial light can also satisfy this heuristic. No alarm will ring.
 
-The dark UI groups the clock, session stages, and instructions above the check-time control and primary action. Active Focus keeps its black background, red text, and dimmed display. See [UI design notes](docs/ui-design.md) for the sketch interpretation, accessibility decisions, research sources, and UI test command.
+Debug builds also show **Debug: simulate sunlight**. It starts an immediate, clearly marked test without changing the saved wake-up time or requesting camera permission. Simulated brightness readings pass through the same sustained-light detector and timer transition as real camera frames. Use a one-minute duration to try the whole countdown, completion, and hold-to-exit flow. The test button and its handler are disabled in non-debuggable builds.
+
+During an active debug test, the **Time speed** slider adjusts simulated time from 1×–100×. Changes apply while dragging, preserving elapsed progress and affecting both light detection and the countdown. Each new test starts at 1×; normal routines always use real time. At 100×, a 15-minute countdown takes about nine real seconds.
+
+The bottom navigation is Home, Blocked apps, Alarms, and Settings, with Settings at the far right. The latter three pages are intentionally blank apart from their titles. Navigation stays visible and the hold-to-exit control remains accessible on every page during an active preview. The preview retains a black background, red text, and dimmed display. See [UI design notes](docs/ui-design.md) for the intended flow, current limitations, and UI test command.
 
 ## GitHub release setup
 

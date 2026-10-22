@@ -16,25 +16,33 @@ internal data class SunlightScreenState(
     val statusMessage: String,
     val displayNow: Instant,
     val countdownEndsAt: Instant?,
+    val sunlightMinutes: Int = DEFAULT_SUNLIGHT_MINUTES,
+    val debugAvailable: Boolean = false,
+    val debugMode: Boolean = false,
+    val cameraPermissionNeeded: Boolean = false,
+    val debugSpeed: Int = 1,
 )
 
 internal enum class FocusPhase(val title: String, val guidance: String) {
   SETUP(
-      "Make room for morning.",
-      "Focus until your check time. Find sunlight. Finish with 15 quiet minutes.",
+      "Your morning routine.",
+      "A little sunlight before you start scrolling.",
   ),
   WAITING(
-      "Time to switch off.",
-      "Keep Sunlight open. The screen stays on and dimmed during Focus.",
+      "Waiting for wake-up time.",
+      "Keep Sunlight open for this preview. No alarm will ring and your apps remain available.",
   ),
   SEEKING_SUNLIGHT(
       "Find the morning light.",
       "Keep the front camera uncovered. Bright artificial light may also pass the check.",
   ),
-  FINAL_COUNTDOWN("A little more quiet.", "Light check complete. The camera is now off."),
+  FINAL_COUNTDOWN(
+      "Your morning timer.",
+      "Preview: the camera is off during this timer. Repeated sunlight checks are not available yet.",
+  ),
   COMPLETE(
-      "Good morning.",
-      "Light check and final countdown complete. You're ready for the day.",
+      "Morning routine complete.",
+      "The preview timer has finished. You're ready for the day.",
   ),
 }
 
