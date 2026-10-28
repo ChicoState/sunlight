@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded by [ADR-002](ADR-002-routine-light-input.md) for duration, camera timing, and debug input. Foreground camera privacy constraints remain in effect.
 
 ## Context
 

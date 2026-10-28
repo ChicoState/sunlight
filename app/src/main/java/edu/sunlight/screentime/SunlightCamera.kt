@@ -6,20 +6,20 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import java.nio.ByteBuffer
-import java.time.Duration
-import java.time.Instant
 
 internal class SunlightCamera(
     private val activity: ComponentActivity,
-    private val onSunlightDetected: () -> Unit,
+    private val onLightReading: (Int) -> Unit,
 ) {
-  private var brightSince: Instant? = null
   private var cameraProvider: ProcessCameraProvider? = null
+  private var generation = 0
 
   fun start() {
+    val request = ++generation
     val providerFuture = ProcessCameraProvider.getInstance(activity)
     providerFuture.addListener(
         {
+          if (request != generation) return@addListener
           val provider = providerFuture.get()
           cameraProvider = provider
           val analysis =
@@ -28,15 +28,7 @@ internal class SunlightCamera(
                   .build()
           analysis.setAnalyzer(ContextCompat.getMainExecutor(activity)) { frame ->
             try {
-              if (meanLuma(frame.planes[0].buffer) >= LIGHT_THRESHOLD) {
-                val now = Instant.now()
-                if (brightSince == null) brightSince = now
-                if (Duration.between(brightSince, now) >= REQUIRED_BRIGHT_DURATION) {
-                  onSunlightDetected()
-                }
-              } else {
-                brightSince = null
-              }
+              if (request == generation) onLightReading(meanLuma(frame.planes[0].buffer))
             } finally {
               frame.close()
             }
@@ -49,9 +41,9 @@ internal class SunlightCamera(
   }
 
   fun stop() {
+    generation++
     cameraProvider?.unbindAll()
     cameraProvider = null
-    brightSince = null
   }
 
   private fun meanLuma(buffer: ByteBuffer): Int {
@@ -66,8 +58,6 @@ internal class SunlightCamera(
   }
 
   private companion object {
-    const val LIGHT_THRESHOLD = 220
     const val UNSIGNED_BYTE_MASK = 0xff
-    val REQUIRED_BRIGHT_DURATION: Duration = Duration.ofSeconds(3)
   }
 }
