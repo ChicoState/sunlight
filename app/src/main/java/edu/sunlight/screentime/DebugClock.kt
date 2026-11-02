@@ -5,10 +5,19 @@ import java.time.Instant
 internal const val MAX_DEBUG_SPEED = 100
 
 /** Anchors each rate change so elapsed time is never rescaled retroactively. */
-internal class DebugClock(start: Instant, elapsedNanos: Long) {
-  private var anchorTime = start
-  private var anchorElapsed = elapsedNanos
-  private var speed = 1
+internal class DebugClock(start: Instant, elapsedNanos: Long, speed: Int = 1) {
+  init {
+    require(speed in 1..MAX_DEBUG_SPEED)
+  }
+
+  var anchorTime = start
+    private set
+
+  var anchorElapsed = elapsedNanos
+    private set
+
+  var speed = speed
+    private set
 
   fun now(elapsedNanos: Long): Instant =
       anchorTime.plusNanos((elapsedNanos - anchorElapsed).coerceAtLeast(0) * speed)

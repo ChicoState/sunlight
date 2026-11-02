@@ -6,7 +6,7 @@ This repository has an Android infrastructure foundation and a Compose morning-r
 
 ## Repository map
 
-- `app/` — Android module, SunlightActivity entrypoint, Compose UI, camera preview flow, and unit/instrumentation tests.
+- `app/` — Android module and unit/instrumentation tests. `SunlightViewModel` owns routine state (saved in `SavedStateHandle`), `SettingsRepository` wraps DataStore, and `SunlightActivity` is a thin host for Compose UI, native pickers, camera, and window display. See `docs/decisions/ADR-003-routine-state-ownership.md`.
 - `gradle/`, `build.gradle.kts`, `settings.gradle.kts` — Gradle toolchain and version catalog.
 - `scripts/` — infrastructure-only smoke checks.
 - `Dockerfile`, `.dockerignore` — reproducible command-line Android build environment; no services or production image.

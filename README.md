@@ -4,7 +4,7 @@ Sunlight is an Android morning-routine prototype. The intended experience is a w
 
 ## Repository map
 
-- `app/` — Android module, Compose UI, foreground camera preview flow, and tests.
+- `app/` — Android module, Compose UI, foreground camera preview flow, and tests. `SunlightViewModel` owns the routine and its state; `SunlightActivity` hosts the UI, native pickers, and camera ([ADR-003](docs/decisions/ADR-003-routine-state-ownership.md)).
 - `gradle/`, `build.gradle.kts`, and `settings.gradle.kts` — Gradle wrapper and build configuration.
 - `scripts/` — Infrastructure-only smoke test.
 - `Dockerfile` — Reproducible command-line Android build environment.
@@ -33,7 +33,7 @@ No `.env` file or backend configuration is required. Do not commit signing keys;
 
 The app is self-contained: it has no accounts, backend, location collection, or network use. Camera frames are analyzed in memory only; it never records, stores, or transmits photos or video. A routine preview consumes battery because the screen stays on. Android system navigation remains available and the app provides a hold-to-exit escape action; it is not a device lock.
 
-On Home, edit your wake-up time and sunlight duration in the same morning panel, then select **Try morning routine**. Duration defaults to 15 minutes and can be set from 1–120 minutes; it is saved locally and cannot change mid-routine. The app waits until the configured wake-up time (tomorrow if it has passed) before requesting camera permission or opening the camera. Sustained bright light starts the selected timer, then the camera stops. Bright artificial light can also satisfy this heuristic. No alarm will ring.
+On Home, edit your wake-up time and sunlight duration in the same morning panel, then select **Try morning routine**. Duration defaults to 15 minutes and can be set from 1–120 minutes; it is saved locally and cannot change mid-routine. An in-progress routine continues after rotation or if Android recreates the app process; clearing app data or force-stopping the app ends it. The app waits until the configured wake-up time (tomorrow if it has passed) before requesting camera permission or opening the camera. Sustained bright light starts the selected timer, then the camera stops. Bright artificial light can also satisfy this heuristic. No alarm will ring.
 
 Debug builds also show **Debug: simulate sunlight**. It starts an immediate, clearly marked test without changing the saved wake-up time or requesting camera permission. Simulated brightness readings pass through the same sustained-light detector and timer transition as real camera frames. Use a one-minute duration to try the whole countdown, completion, and hold-to-exit flow. The test button and its handler are disabled in non-debuggable builds.
 
