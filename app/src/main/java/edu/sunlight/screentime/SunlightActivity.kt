@@ -98,6 +98,7 @@ class SunlightActivity : ComponentActivity() {
           onDebugSunlight = ::testSunlight,
           onEnableCamera = ::requestCamera,
           onDebugSpeedChange = ::changeDebugSpeed,
+          blockedAppsPage = { night -> BlockedAppsRoute(night) },
       )
     }
     lifecycleScope.launch {
@@ -280,6 +281,9 @@ class SunlightActivity : ComponentActivity() {
   }
 
   private fun finishSession() {
+    // Only a real routine reaching COMPLETE unlocks nightly-locked apps; debug tests never do.
+    if (!debugMode)
+        lifecycleScope.launch { appLockRepository.recordRoutineCompleted(Instant.now()) }
     phase = FocusPhase.COMPLETE
     statusMessage = "Your morning timer is complete."
     leaveFocusDisplay()
