@@ -21,7 +21,11 @@ internal data class SunlightScreenState(
     val debugMode: Boolean = false,
     val cameraPermissionNeeded: Boolean = false,
     val debugSpeed: Int = 1,
-)
+) {
+  /** A real routine that is checking for light needs camera access and frames. */
+  val needsCamera: Boolean
+    get() = phase == FocusPhase.SEEKING_SUNLIGHT && !debugMode
+}
 
 internal enum class FocusPhase(val title: String, val guidance: String) {
   SETUP(

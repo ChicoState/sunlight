@@ -56,6 +56,9 @@ stops the camera, then runs the chosen timer. Bright artificial light can pass
 the check. No alarm rings, apps are not blocked, and sunlight is not checked
 throughout the timer. The UI describes this as a preview. See
 [ADR-002](decisions/ADR-002-routine-light-input.md) for shared light-input behavior.
+An active routine survives rotation and process recreation; a partially detected
+light check restarts. [ADR-003](decisions/ADR-003-routine-state-ownership.md) records
+that `SunlightViewModel` owns this state and the Activity only hosts the UI.
 
 ## Verification
 

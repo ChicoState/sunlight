@@ -71,4 +71,16 @@ class MorningRoutineTest {
     assertEquals(1, sunlightMinutesOrDefault(1))
     assertEquals(120, sunlightMinutesOrDefault(120))
   }
+
+  @Test
+  fun `a restored countdown resumes and completes at its saved end time`() {
+    val endsAt = wakeAt.plusSeconds(120)
+    val routine = MorningRoutine(wakeAt, 2, countdownEndsAt = endsAt)
+    assertEquals(FocusPhase.FINAL_COUNTDOWN, routine.phase)
+    assertEquals(endsAt, routine.countdownEndsAt)
+    routine.acceptLight(255, wakeAt.plusSeconds(60))
+    assertEquals(endsAt, routine.countdownEndsAt)
+    routine.advance(endsAt)
+    assertEquals(FocusPhase.COMPLETE, routine.phase)
+  }
 }
