@@ -1,10 +1,10 @@
 # Sunlight
 
-Sunlight is an Android morning-routine prototype. The intended experience is a wake-up alarm followed by a user-selected duration of regularly checked sunlight, with only user-allowed apps available until completion and a hold-to-unlock emergency exit. The current preview checks camera brightness once and then runs a timer; alarm ringing, app restrictions, and repeated sunlight checks are not implemented yet.
+Sunlight is an Android morning-routine prototype. The intended experience is a wake-up alarm followed by a user-selected duration of regularly checked sunlight, with only user-allowed apps available until completion and a hold-to-unlock emergency exit. The current preview checks camera brightness once and then runs a timer. Selected apps can be locked nightly until that timer finishes (see below). Alarm ringing and repeated sunlight checks are not implemented yet.
 
 ## Repository map
 
-- `app/` — Android module, Compose UI, foreground camera preview flow, and tests.
+- `app/` — Android module, Compose UI, foreground camera preview flow, nightly app lock (accessibility service, block screen, alarm/boot receivers), and tests.
 - `gradle/`, `build.gradle.kts`, and `settings.gradle.kts` — Gradle wrapper and build configuration.
 - `scripts/` — Infrastructure-only smoke test.
 - `Dockerfile` — Reproducible command-line Android build environment.
@@ -31,7 +31,7 @@ No `.env` file or backend configuration is required. Do not commit signing keys;
 | `docker build --tag android-build-env:local .` | Build the pinned Android development image. |
 | `docker run --rm --user root -v "$PWD":/workspace -w /workspace android-build-env:local --no-daemon verify` | Run full verification in Docker. |
 
-The app is self-contained: it has no accounts, backend, location collection, or network use. Camera frames are analyzed in memory only; it never records, stores, or transmits photos or video. A routine preview consumes battery because the screen stays on. Android system navigation remains available and the app provides a hold-to-exit escape action; it is not a device lock.
+The app is self-contained: it has no accounts, backend, location collection, or network use. The app-lock accessibility service reads only the package name of the app coming to the foreground, never screen content. Camera frames are analyzed in memory only; it never records, stores, or transmits photos or video. A routine preview consumes battery because the screen stays on. Android system navigation remains available and the app provides a hold-to-exit escape action; it is not a device lock.
 
 On Home, edit your wake-up time and sunlight duration in the same morning panel, then select **Try morning routine**. Duration defaults to 15 minutes and can be set from 1–120 minutes; it is saved locally and cannot change mid-routine. The app waits until the configured wake-up time (tomorrow if it has passed) before requesting camera permission or opening the camera. Sustained bright light starts the selected timer, then the camera stops. Bright artificial light can also satisfy this heuristic. No alarm will ring.
 
@@ -39,7 +39,9 @@ Debug builds also show **Debug: simulate sunlight**. It starts an immediate, cle
 
 During an active debug test, the **Time speed** slider adjusts simulated time from 1×–100×. Changes apply while dragging, preserving elapsed progress and affecting both light detection and the countdown. Each new test starts at 1×; normal routines always use real time. At 100×, a 15-minute countdown takes about nine real seconds.
 
-The bottom navigation is Home, Blocked apps, Alarms, and Settings, with Settings at the far right. The latter three pages are intentionally blank apart from their titles. Navigation stays visible and the hold-to-exit control remains accessible on every page during an active preview. The preview retains a black background, red text, and dimmed display. See [UI design notes](docs/ui-design.md) for the intended flow, current limitations, and UI test command.
+The bottom navigation is Home, Blocked apps, Alarms, and Settings, with Settings at the far right. Alarms and Settings are intentionally blank apart from their titles.
+
+On **Blocked apps**, turn on the **Sunlight app lock** accessibility service using the setup row (on Android 13+ a sideloaded APK may first need App info › ⋮ › **Allow restricted settings**). Then choose apps, a lock time (default 10:00 PM), and switch on **Lock apps nightly**. From the lock time, opening a selected app shows a Sunlight block screen until a real morning routine's timer finishes. Ending the routine early, the debug simulation, or the app being killed mid-countdown does not unlock apps. Settings are frozen while locked; a long-press emergency unlock with a 10-second countdown unlocks until the next lock time and is recorded as an emergency. Sunlight, the phone app, Settings, and the home screen are never locked. Edits take effect from the next lock time. The lock is stored locally and rescheduled after reboot or time changes. It is not a device lock: disabling the service or uninstalling bypasses it. See [ADR-003](docs/decisions/ADR-003-nightly-app-lock.md). Navigation stays visible and the hold-to-exit control remains accessible on every page during an active preview. The preview retains a black background, red text, and dimmed display. See [UI design notes](docs/ui-design.md) for the intended flow, current limitations, and UI test command.
 
 ## GitHub release setup
 
