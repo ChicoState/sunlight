@@ -35,11 +35,13 @@ class SunlightViewModelTest {
       handle: SavedStateHandle = SavedStateHandle(),
       store: FakePreferencesDataStore = FakePreferencesDataStore(settings()),
       debugAvailable: Boolean = true,
+      recordCompletion: suspend (Instant) -> Unit = {},
   ) =
       SunlightViewModel(
           savedState = handle,
           settings = SettingsRepository(store),
           debugAvailable = debugAvailable,
+          recordCompletion = recordCompletion,
           wallClock = { wallNow },
           elapsedNanos = { elapsedNanos },
           scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
@@ -286,5 +288,38 @@ class SunlightViewModelTest {
     assertEquals("Wake-up time: 1:05 PM. Try the routine below.", model.state.value.statusMessage)
     val stored = runBlocking { SettingsRepository(store).settings.first() }
     assertEquals(LocalTime.of(13, 5), stored.releaseTime)
+  }
+
+  @Test
+  fun `real completion records its deadline, idempotently, even after restoring next night`() {
+    val handle = SavedStateHandle()
+    val completions = mutableListOf<Instant>()
+    val model = viewModel(handle = handle, recordCompletion = { completions += it })
+    model.reachCountdown()
+    val deadline = requireNotNull(model.state.value.countdownEndsAt)
+    assertTrue(completions.isEmpty())
+    wallNow = deadline.plusSeconds(86_400)
+    model.tick()
+    assertEquals(listOf(deadline), completions)
+    val snapshot = SavedStateHandle(handle.keys().associateWith { handle.get<Any?>(it) })
+    val restored = viewModel(handle = snapshot, recordCompletion = { completions += it })
+    restored.tick()
+    // A restored session re-derives COMPLETE and may record again; the write is idempotent.
+    assertEquals(setOf(deadline), completions.toSet())
+  }
+
+  @Test
+  fun `debug completion and early exit never record a real completion`() {
+    val completions = mutableListOf<Instant>()
+    val model = viewModel(recordCompletion = { completions += it })
+    model.reachCountdown()
+    model.endSession()
+    model.startRoutine(debug = true)
+    elapsedNanos = 3_000_000_000
+    model.tick()
+    elapsedNanos = 400_000_000_000
+    model.tick()
+    assertEquals(FocusPhase.COMPLETE, model.state.value.phase)
+    assertTrue(completions.isEmpty())
   }
 }

@@ -38,10 +38,12 @@ internal enum class CameraEvent {
  * into [SavedStateHandle] after every change so it survives configuration changes and process
  * death; settings come from [SettingsRepository] as a flow.
  */
+@Suppress("LongParameterList") // injected collaborators, all required for deterministic tests
 internal class SunlightViewModel(
     private val savedState: SavedStateHandle,
     private val settings: SettingsRepository,
     private val debugAvailable: Boolean,
+    private val recordCompletion: suspend (Instant) -> Unit,
     private val wallClock: RoutineClock,
     private val elapsedNanos: () -> Long,
     scope: CoroutineScope,
@@ -158,6 +160,12 @@ internal class SunlightViewModel(
     val current = session
     if (current != null && current.routine.phase != previousPhase) {
       phaseNotice(current)?.let { status = it }
+      // Only a real routine reaching COMPLETE unlocks nightly-locked apps; debug tests never do.
+      if (current.routine.phase == FocusPhase.COMPLETE && !current.isDebug) {
+        current.routine.countdownEndsAt?.let { deadline ->
+          viewModelScope.launch { recordCompletion(deadline) }
+        }
+      }
     }
     if (current == null) RoutineSession.clear(savedState) else current.saveTo(savedState)
     savedState[KEY_STATUS] = status
@@ -185,6 +193,7 @@ internal class SunlightViewModel(
               savedState = createSavedStateHandle(),
               settings = SettingsRepository(appContext.focusDataStore),
               debugAvailable = debugAvailable,
+              recordCompletion = appContext.appLockRepository::recordRoutineCompleted,
               wallClock = { Instant.now() },
               elapsedNanos = SystemClock::elapsedRealtimeNanos,
               scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),

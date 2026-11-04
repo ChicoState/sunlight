@@ -46,6 +46,7 @@ internal fun SunlightScreen(
     onDebugSunlight: () -> Unit = {},
     onEnableCamera: () -> Unit = {},
     onDebugSpeedChange: (Int) -> Unit = {},
+    blockedAppsPage: (@Composable (night: Boolean) -> Unit)? = null,
 ) {
   var page by rememberSaveable { mutableStateOf("Home") }
   val active = state.phase.isActive()
@@ -89,12 +90,10 @@ internal fun SunlightScreen(
             RoutineAction("Allow camera", onEnableCamera, filled = false, accent = accent)
           }
         }
+      } else if (page == "Blocked apps" && blockedAppsPage != null) {
+        blockedAppsPage(active)
       } else {
-        BasicText(
-            page,
-            style = TextStyle(color = accent, fontSize = 28.sp),
-            modifier = Modifier.padding(24.dp).testTag("page-$page").semantics { heading() },
-        )
+        PlaceholderPage(page, accent)
       }
     }
     if (active) {
@@ -108,6 +107,16 @@ internal fun SunlightScreen(
 
 @Suppress("FunctionNaming")
 @Composable
+private fun PlaceholderPage(page: String, accent: Color) {
+  BasicText(
+      page,
+      style = TextStyle(color = accent, fontSize = 28.sp),
+      modifier = Modifier.padding(24.dp).testTag("page-$page").semantics { heading() },
+  )
+}
+
+@Suppress("FunctionNaming")
+@Composable
 private fun HomeActions(state: SunlightScreenState, onBegin: () -> Unit, onDebug: () -> Unit) {
   RoutineAction(
       if (state.phase == FocusPhase.COMPLETE) "Try morning routine again"
@@ -115,7 +124,8 @@ private fun HomeActions(state: SunlightScreenState, onBegin: () -> Unit, onDebug
       onBegin,
   )
   RoutineLabel(
-      "Preview: no alarm or app blocking yet. One light check starts your timer.",
+      "Preview: no alarm rings. One light check starts your timer; apps locked on the " +
+          "Blocked apps page unlock when it finishes.",
       SunlightPalette.secondaryText,
   )
   if (state.debugAvailable) {

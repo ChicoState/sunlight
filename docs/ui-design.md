@@ -31,8 +31,22 @@ still need definition. Fifteen minutes is the default, not a fixed requirement.
   light detection, countdown display, and completion share that clock. Reset to
   1× on each new run. Normal routines keep real-time behavior.
 - Retain bottom navigation outside scrolling content: Home, Blocked apps, Alarms,
-  Settings. Settings stays farthest right. The latter three pages remain title-only
+  Settings. Settings stays farthest right. Alarms and Settings remain title-only
   placeholders. Each icon has a text label and tab selection semantics.
+- Blocked apps shows the lock status (live region), a setup row when the
+  "Sunlight app lock" accessibility service is off (with links to Accessibility
+  settings and App info), a "Lock apps nightly" switch, a lock time edited with
+  the same native TimePicker dialog as wake-up time (default 10:00 PM), and a
+  checkbox list of launchable apps with labels and icons. Sunlight, the phone
+  app, Settings, and home-screen apps are not listed and are never locked.
+  Changes save to the local `app_lock` DataStore and take effect from the next
+  lock time. While locked, the controls are disabled and a hold-for-emergency-
+  unlock action is shown.
+- A locked app is covered by a full-screen block screen with Go to home screen,
+  Open Sunlight, and emergency unlock. Back goes home. Emergency unlock is a
+  long-press (or named accessibility action) followed by a 10-second countdown
+  that a tap cancels; it is recorded as an emergency, never as a completed
+  routine. See [ADR-003](decisions/ADR-004-nightly-app-lock.md).
 - Keep the hold-to-exit action fixed above navigation on every page during a
   routine. A tap does not exit; a named accessibility long-press action does.
 - Preserve the charcoal/amber palette, dim red active display, system insets,
@@ -47,23 +61,33 @@ morning panel instead of visually independent time and routine cards.
 label/value/action structure. [Android's permission guidance](https://developer.android.com/training/permissions/requesting)
 recommends requesting permission in context and allowing graceful denial; this
 informs the delayed camera request and explicit retry action. These are layout
-and permission choices, not claims of implementing alarm or blocking behavior.
+and permission choices. App blocking follows ADR-003; no alarm is implemented.
 
 ## Remaining preview limitations
 
 The foreground prototype waits for the selected time, checks brightness once,
 stops the camera, then runs the chosen timer. Bright artificial light can pass
-the check. No alarm rings, apps are not blocked, and sunlight is not checked
-throughout the timer. The UI describes this as a preview. See
+the check. No alarm rings and sunlight is not checked throughout the timer. The
+UI describes this as a preview. See
 [ADR-002](decisions/ADR-002-routine-light-input.md) for shared light-input behavior.
 An active routine survives rotation and process recreation; a partially detected
 light check restarts. [ADR-003](decisions/ADR-003-routine-state-ownership.md) records
 that `SunlightViewModel` owns this state and the Activity only hosts the UI.
 
+Apps selected on Blocked apps are locked from the nightly lock time until a real
+(non-debug) routine reaches its finished state. Ending early or the app being
+killed mid-countdown does not unlock them; restarting the routine waits for the
+next wake-up time, so the emergency unlock is the way out that day. Locking
+needs the accessibility service and is not a device lock: disabling the service,
+uninstalling, split-screen, or picture-in-picture can bypass it.
+
 ## Verification
 
 Run `./gradlew --no-daemon verify` for logic, compilation, and static checks;
 `./gradlew --no-daemon :app:connectedDebugAndroidTest` for picker persistence,
-navigation, custom duration, debug input, waiting behavior, and hold-to-exit.
+navigation, custom duration, debug input, waiting behavior, hold-to-exit, and the
+Blocked apps page and block screen (checkboxes, setup row, frozen edits,
+emergency countdown). Actual blocking of another app needs a device or emulator
+with the accessibility service enabled.
 Visually inspect Home, the duration picker, active timer, small screens, and
 enlarged text. A physical device is still needed to validate the light heuristic.

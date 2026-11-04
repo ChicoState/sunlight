@@ -64,6 +64,7 @@ class SunlightActivity : ComponentActivity() {
                 cameraPermission.launch(Manifest.permission.CAMERA)
           },
           onDebugSpeedChange = viewModel::changeDebugSpeed,
+          blockedAppsPage = { night -> BlockedAppsRoute(night) },
       )
     }
     lifecycleScope.launch {
