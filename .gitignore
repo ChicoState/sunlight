@@ -24,3 +24,7 @@ secrets/
 
 # Operating system files
 .DS_Store
+
+# Claude Code local state
+.claude/worktrees/
+.claude/settings.local.json

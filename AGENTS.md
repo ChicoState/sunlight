@@ -6,14 +6,13 @@ This repository has an Android infrastructure foundation and a Compose morning-r
 
 ## Repository map
 
-- `app/` — Android module and unit/instrumentation tests. `SunlightViewModel` owns routine state (saved in `SavedStateHandle`), `SettingsRepository` wraps DataStore, and `SunlightActivity` is a thin host for Compose UI, native pickers, camera, and window display. See `docs/decisions/ADR-003-routine-state-ownership.md`.
-- `app/` — Android module, SunlightActivity entrypoint, Compose UI, camera preview flow, nightly app lock (`AppLock*`, `BlockedApps*`, `AppBlockedActivity`, `InstalledApps.kt`), and unit/instrumentation tests.
+- `app/` — Android module; nightly app lock (`AppLock*`, `BlockedApps*`, `AppBlockedActivity`, `InstalledApps.kt`) and unit/instrumentation tests. `SunlightViewModel` owns routine state (saved in `SavedStateHandle`), `SettingsRepository` wraps DataStore, and `SunlightActivity` is a thin host for Compose UI, native pickers, camera, and window display. See `docs/decisions/ADR-003-routine-state-ownership.md`.
 - `gradle/`, `build.gradle.kts`, `settings.gradle.kts` — Gradle toolchain and version catalog.
 - `scripts/` — infrastructure-only smoke checks.
 - `Dockerfile`, `.dockerignore` — reproducible command-line Android build environment; no services or production image.
 - `.github/workflows/` — pull-request checks and guarded GitHub Release workflow.
 - `README.md` and `infrastructure_plan.md` — developer setup and approved infrastructure decisions.
-- `.agents/skills/` — project skills. No API/backend exists; alarms and repeated sunlight checks are not implemented. Nightly app restrictions exist via an accessibility service (ADR-004).
+- `.agents/skills/` — project skills (source of truth, used by Codex). `.claude/skills/` is a mirror for Claude Code; after editing a skill run `./scripts/sync-claude-skills.sh` (`--check` verifies). `CLAUDE.md` just imports this file. No API/backend exists; alarms and repeated sunlight checks are not implemented. Nightly app restrictions exist via an accessibility service (ADR-004).
 
 ## Required workflow
 
