@@ -21,7 +21,11 @@ internal data class SunlightScreenState(
     val debugMode: Boolean = false,
     val cameraPermissionNeeded: Boolean = false,
     val debugSpeed: Int = 1,
-)
+) {
+  /** A real routine that is checking for light needs camera access and frames. */
+  val needsCamera: Boolean
+    get() = phase == FocusPhase.SEEKING_SUNLIGHT && !debugMode
+}
 
 internal enum class FocusPhase(val title: String, val guidance: String) {
   SETUP(
@@ -30,7 +34,7 @@ internal enum class FocusPhase(val title: String, val guidance: String) {
   ),
   WAITING(
       "Waiting for wake-up time.",
-      "Keep Sunlight open for this preview. No alarm will ring and your apps remain available.",
+      "Keep Sunlight open for this preview. No alarm will ring. Locked apps stay locked until your timer finishes.",
   ),
   SEEKING_SUNLIGHT(
       "Find the morning light.",
