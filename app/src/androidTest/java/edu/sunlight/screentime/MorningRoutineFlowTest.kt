@@ -77,6 +77,10 @@ class MorningRoutineFlowTest {
     }
     onView(withText("Set time")).inRoot(isDialog()).perform(click())
     compose.onNodeWithText("Try morning routine").performScrollTo().performClick()
+    onView(withText("Enable Android Night Light?")).inRoot(isDialog()).check { _, error ->
+      if (error != null) throw error
+    }
+    onView(withText("Not now")).inRoot(isDialog()).perform(click())
     compose.onNodeWithText("Waiting for wake-up time.").performScrollTo().assertIsDisplayed()
     compose.onNodeWithText("Allow camera").assertDoesNotExist()
     compose.onNodeWithText("Debug: simulate sunlight").assertDoesNotExist()

@@ -51,6 +51,11 @@ internal fun FocusPhase.isActive(): Boolean =
         this == FocusPhase.SEEKING_SUNLIGHT ||
         this == FocusPhase.FINAL_COUNTDOWN
 
+internal fun FocusPhase.shouldRunBlueLightFilter(
+    overlayAuthorized: Boolean,
+    appInBackground: Boolean,
+): Boolean = isActive() && overlayAuthorized && appInBackground
+
 internal fun currentClock(now: Instant): String =
     now.atZone(ZoneId.systemDefault()).toLocalTime().format(timeFormatter)
 

@@ -2,10 +2,13 @@ package edu.sunlight.screentime
 
 import android.Manifest
 import android.app.AlertDialog
+import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
+import android.provider.Settings
 import android.view.WindowManager
 import android.widget.NumberPicker
 import android.widget.TimePicker
@@ -54,6 +57,9 @@ class SunlightActivity : ComponentActivity() {
   private var cameraRequested = false
   private var cameraRunning = false
   private var displayNow by mutableStateOf(Instant.now())
+  private var overlayPermissionRequested = false
+  private var requestOverlayPermissionAfterNightDisplay = false
+  private var appInBackground = false
   private val sunlightCamera = SunlightCamera(this) { light -> if (!debugMode) acceptLight(light) }
   private val debugAvailable: Boolean
     get() = applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
@@ -115,7 +121,13 @@ class SunlightActivity : ComponentActivity() {
 
   override fun onResume() {
     super.onResume()
+    appInBackground = false
     if (phase != FocusPhase.SETUP && phase != FocusPhase.COMPLETE) hideSystemBars()
+    if (requestOverlayPermissionAfterNightDisplay) {
+      requestOverlayPermissionAfterNightDisplay = false
+      requestOverlayPermissionIfNeeded()
+    }
+    syncBlueLightFilter()
   }
 
   override fun onDestroy() {
@@ -126,6 +138,8 @@ class SunlightActivity : ComponentActivity() {
   override fun onStop() {
     stopCamera()
     routine?.resetLightCheck()
+    appInBackground = true
+    syncBlueLightFilter()
     super.onStop()
   }
 
@@ -183,6 +197,7 @@ class SunlightActivity : ComponentActivity() {
         else
             "Sunlight checking starts at ${displayTime(requireNotNull(releaseTime))}. Camera stays off until then."
     enterFocusDisplay()
+    requestNightDisplaySetup()
     updateSession()
   }
 
@@ -193,6 +208,7 @@ class SunlightActivity : ComponentActivity() {
     val previous = current.phase
     current.advance(now)
     phase = current.phase
+    syncBlueLightFilter()
     if (phase == FocusPhase.COMPLETE && previous != phase) finishSession()
     if (phase != FocusPhase.SEEKING_SUNLIGHT) return
     if (debugMode) {
@@ -280,12 +296,14 @@ class SunlightActivity : ComponentActivity() {
   }
 
   private fun finishSession() {
+    BlueLightFilterService.stop(this)
     phase = FocusPhase.COMPLETE
     statusMessage = "Your morning timer is complete."
     leaveFocusDisplay()
   }
 
   private fun endSession() {
+    BlueLightFilterService.stop(this)
     stopCamera()
     phase = FocusPhase.SETUP
     routine = null
@@ -296,6 +314,46 @@ class SunlightActivity : ComponentActivity() {
     cameraPermissionNeeded = false
     statusMessage = "You exited the morning routine preview early."
     leaveFocusDisplay()
+  }
+
+  private fun requestOverlayPermissionIfNeeded() {
+    if (debugMode || Settings.canDrawOverlays(this) || overlayPermissionRequested) return
+    overlayPermissionRequested = true
+    statusMessage = "Allow Sunlight to display the amber filter over other apps."
+    startActivity(
+        Intent(
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            Uri.parse("package:$packageName"),
+        )
+    )
+  }
+
+  private fun requestNightDisplaySetup() {
+    if (debugMode) return
+    val nightDisplaySettings = Intent(Settings.ACTION_NIGHT_DISPLAY_SETTINGS)
+    if (nightDisplaySettings.resolveActivity(packageManager) == null) {
+      requestOverlayPermissionIfNeeded()
+      return
+    }
+    AlertDialog.Builder(this)
+        .setTitle("Enable Android Night Light?")
+        .setMessage(
+            "Night Light is Android's built-in blue-light filter. Open its settings to enable it and choose your preferred intensity."
+        )
+        .setNegativeButton("Not now") { _, _ -> requestOverlayPermissionIfNeeded() }
+        .setPositiveButton("Open settings") { _, _ ->
+          requestOverlayPermissionAfterNightDisplay = true
+          startActivity(nightDisplaySettings)
+        }
+        .setOnCancelListener { requestOverlayPermissionIfNeeded() }
+        .show()
+  }
+
+  private fun syncBlueLightFilter() {
+    val authorized = !debugMode && Settings.canDrawOverlays(this)
+    if (phase.shouldRunBlueLightFilter(authorized, appInBackground)) {
+      BlueLightFilterService.start(this)
+    } else BlueLightFilterService.stop(this)
   }
 
   private companion object {
