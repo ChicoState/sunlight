@@ -47,6 +47,7 @@ internal class SunlightViewModel(
     scope: CoroutineScope,
 ) : ViewModel(scope) {
   private var session = RoutineSession.restore(savedState, wallClock, elapsedNanos)
+  private var announcedPhase = session?.routine?.phase
   private var status: String = savedState[KEY_STATUS] ?: ""
   private var routineSettings = RoutineSettings()
   private val mutableState =
@@ -125,40 +126,58 @@ internal class SunlightViewModel(
     if (debugAvailable && current.setDebugSpeed(speed)) update { current.advance() }
   }
 
-  fun onLightReading(luma: Int) = update { session?.acceptCameraLight(luma) }
+  /** Frames arrive many times a second, so state is published only when one changes the phase. */
+  fun onLightReading(luma: Int) {
+    val current = session ?: return
+    current.acceptCameraLight(luma)
+    if (current.routine.phase != announcedPhase) update {}
+  }
 
   /** Returns true when the Activity should show the system camera-permission prompt. */
   fun onCameraEvent(event: CameraEvent): Boolean {
     val current = session?.takeIf { event == CameraEvent.STOPPED || it.needsCamera } ?: return false
     val prompt = event == CameraEvent.PERMISSION_MISSING && !current.cameraRequested
-    update {
-      when (event) {
-        CameraEvent.STOPPED -> current.routine.resetLightCheck()
-        CameraEvent.STARTED -> {
-          current.cameraPermissionNeeded = false
-          status = "Find bright sunlight and keep the front camera uncovered."
-        }
-        CameraEvent.PERMISSION_MISSING -> {
-          current.cameraPermissionNeeded = true
-          current.cameraRequested = true
-        }
-        CameraEvent.PERMISSION_DENIED -> {
-          current.cameraPermissionNeeded = true
-          status = "Camera access is off. Allow access to check sunlight."
+    // The Activity reports this from its state collector, which would loop on the main thread if
+    // repeating a condition already in state published a new state with a new display time.
+    val alreadyReported =
+        event == CameraEvent.PERMISSION_MISSING &&
+            current.cameraRequested &&
+            current.cameraPermissionNeeded
+    if (!alreadyReported) {
+      update {
+        when (event) {
+          CameraEvent.STOPPED -> current.routine.resetLightCheck()
+          CameraEvent.STARTED -> {
+            current.cameraPermissionNeeded = false
+            status = "Find bright sunlight and keep the front camera uncovered."
+          }
+          CameraEvent.PERMISSION_MISSING -> {
+            current.cameraPermissionNeeded = true
+            current.cameraRequested = true
+          }
+          CameraEvent.PERMISSION_DENIED -> {
+            current.cameraPermissionNeeded = true
+            status = "Camera access is off. Allow access to check sunlight."
+          }
         }
       }
     }
     return prompt
   }
 
-  /** Applies [change], announces phase transitions, saves the session, and publishes state. */
+  /**
+   * Applies [change], announces phase transitions, saves the session, and publishes state. The
+   * announced phase is tracked separately because camera frames change the routine before calling
+   * this.
+   */
   private inline fun update(change: () -> Unit) {
-    val previousPhase = session?.routine?.phase
     change()
     val current = session
-    if (current != null && current.routine.phase != previousPhase) {
+    val phase = current?.routine?.phase
+    if (current != null && phase != announcedPhase) {
       phaseNotice(current)?.let { status = it }
     }
+    announcedPhase = phase
     if (current == null) RoutineSession.clear(savedState) else current.saveTo(savedState)
     savedState[KEY_STATUS] = status
     mutableState.value =

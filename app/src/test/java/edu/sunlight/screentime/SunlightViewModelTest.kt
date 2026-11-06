@@ -11,12 +11,18 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+
+private const val COLLECTOR_LOOP_LIMIT = 100
 
 class SunlightViewModelTest {
   private var wallNow = Instant.parse("2026-10-22T05:00:00Z")
@@ -262,6 +268,75 @@ class SunlightViewModelTest {
         "Find bright sunlight and keep the front camera uncovered.",
         model.state.value.statusMessage,
     )
+  }
+
+  /**
+   * The Activity reports missing permission from its state collector. A collector that causes a new
+   * state loops without suspending, so reporting must settle; the clock moves on every pass, as a
+   * sub-millisecond device clock would, so a fresh display time can't end the loop by coincidence.
+   */
+  @Test
+  fun `reporting missing camera permission from the state collector settles`() {
+    val model = viewModel()
+    model.startRoutine(debug = false)
+    wallNow = wakeAt
+    model.tick()
+    var emissions = 0
+    val collector =
+        CoroutineScope(Dispatchers.Unconfined).launch {
+          model.state.take(COLLECTOR_LOOP_LIMIT).collect {
+            emissions++
+            wallNow = wallNow.plusNanos(1)
+            model.onCameraEvent(CameraEvent.PERMISSION_MISSING)
+          }
+        }
+    collector.cancel()
+    assertTrue("collector looped $emissions times", emissions < COLLECTOR_LOOP_LIMIT)
+    assertTrue(model.state.value.cameraPermissionNeeded)
+  }
+
+  @Test
+  fun `camera permission lost after starting is still reported`() {
+    val model = viewModel()
+    model.startRoutine(debug = false)
+    wallNow = wakeAt
+    model.tick()
+    assertTrue(model.onCameraEvent(CameraEvent.PERMISSION_MISSING))
+    model.onCameraEvent(CameraEvent.STARTED)
+    assertFalse(model.state.value.cameraPermissionNeeded)
+    assertFalse(model.onCameraEvent(CameraEvent.PERMISSION_MISSING))
+    assertTrue(model.state.value.cameraPermissionNeeded)
+  }
+
+  @Test
+  fun `camera frames publish state only when the phase changes`() {
+    val model = viewModel()
+    model.startRoutine(debug = false)
+    wallNow = wakeAt
+    model.tick()
+    val published = model.state.value
+    model.onLightReading(255)
+    wallNow = wakeAt.plusSeconds(1)
+    model.onLightReading(0)
+    wallNow = wakeAt.plusSeconds(2)
+    model.onLightReading(255)
+    assertSame(published, model.state.value)
+    wallNow = wakeAt.plusSeconds(5)
+    model.onLightReading(255)
+    assertEquals(FocusPhase.FINAL_COUNTDOWN, model.state.value.phase)
+    assertNotNull(model.state.value.countdownEndsAt)
+  }
+
+  @Test
+  fun `a frame that passes the light check is announced and saved for restoration`() {
+    val handle = SavedStateHandle()
+    val model = viewModel(handle)
+    model.reachCountdown()
+    assertEquals(
+        "Bright light detected. Your 5-minute timer has started.",
+        model.state.value.statusMessage,
+    )
+    assertEquals(FocusPhase.FINAL_COUNTDOWN, viewModel(handle).state.value.phase)
   }
 
   @Test
