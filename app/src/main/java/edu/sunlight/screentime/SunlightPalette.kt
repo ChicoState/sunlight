@@ -11,6 +11,7 @@ internal object SunlightPalette {
   val primaryText = Color(0xffe7e7dd)
   val secondaryText = Color(0xffb8bdb3)
   val sunlightAccent = Color(0xffdfbc7a)
+  val danger = Color(0xffe16f68)
   val nightAccent = Color(0xffed9690)
   val nightSecondary = Color(0xffc99590)
   val nightSurface = Color(0xff1c1414)

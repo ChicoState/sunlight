@@ -34,18 +34,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.time.LocalTime
 
 @Suppress("FunctionNaming", "LongParameterList")
 @Composable
 internal fun SunlightScreen(
     state: SunlightScreenState,
-    onChooseReleaseTime: () -> Unit,
+    onAddSunlightTime: () -> Unit,
     onBeginFocus: () -> Unit,
     onEndSession: () -> Unit,
     onChooseDuration: () -> Unit = {},
     onDebugSunlight: () -> Unit = {},
     onEnableCamera: () -> Unit = {},
     onDebugSpeedChange: (Int) -> Unit = {},
+    onEditSunlightTime: (LocalTime) -> Unit = {},
+    onRemoveSunlightTime: (LocalTime) -> Unit = {},
 ) {
   var page by rememberSaveable { mutableStateOf("Home") }
   val active = state.phase.isActive()
@@ -57,38 +60,28 @@ internal fun SunlightScreen(
   ) {
     Box(Modifier.weight(1f).fillMaxWidth()) {
       if (page == "Home") {
-        Column(
-            Modifier.widthIn(max = 560.dp)
-                .fillMaxWidth()
-                .align(Alignment.TopCenter)
-                .verticalScroll(rememberScrollState())
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-        ) {
-          Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            BasicText(
-                "Sunlight",
-                style =
-                    TextStyle(
-                        color = accent,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Medium,
-                    ),
-                modifier = Modifier.semantics { heading() },
-            )
-            RoutineLabel(
-                "A brighter start to your day.",
-                if (active) SunlightPalette.nightSecondary else SunlightPalette.secondaryText,
-            )
-          }
-          MorningRoutinePanel(state, onChooseReleaseTime, onChooseDuration, onDebugSpeedChange)
-          if (!active) {
-            HomeActions(state, onBeginFocus, onDebugSunlight)
-          }
-          if (state.cameraPermissionNeeded && !state.debugMode) {
-            RoutineAction("Allow camera", onEnableCamera, filled = false, accent = accent)
-          }
-        }
+        HomePage(
+            state,
+            accent,
+            onManageTimes = { page = "Alarms" },
+            onAddSunlightTime = {
+              page = "Alarms"
+              onAddSunlightTime()
+            },
+            onChooseDuration,
+            onDebugSpeedChange,
+            onBeginFocus,
+            onDebugSunlight,
+            onEnableCamera,
+            Modifier.align(Alignment.TopCenter),
+        )
+      } else if (page == "Alarms") {
+        SunlightTimesPage(
+            state,
+            onAddSunlightTime,
+            onEditSunlightTime,
+            onRemoveSunlightTime,
+        )
       } else {
         BasicText(
             page,
@@ -106,6 +99,54 @@ internal fun SunlightScreen(
   }
 }
 
+@Suppress("FunctionNaming", "LongParameterList")
+@Composable
+private fun HomePage(
+    state: SunlightScreenState,
+    accent: Color,
+    onManageTimes: () -> Unit,
+    onAddSunlightTime: () -> Unit,
+    onChooseDuration: () -> Unit,
+    onDebugSpeedChange: (Int) -> Unit,
+    onBeginFocus: () -> Unit,
+    onDebugSunlight: () -> Unit,
+    onEnableCamera: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+  val active = state.phase.isActive()
+  Column(
+      modifier
+          .widthIn(max = 560.dp)
+          .fillMaxWidth()
+          .verticalScroll(rememberScrollState())
+          .padding(24.dp),
+      verticalArrangement = Arrangement.spacedBy(24.dp),
+  ) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+      BasicText(
+          "Sunlight",
+          style = TextStyle(color = accent, fontSize = 28.sp, fontWeight = FontWeight.Medium),
+          modifier = Modifier.semantics { heading() },
+      )
+      RoutineLabel(
+          "A brighter start to your day.",
+          if (active) SunlightPalette.nightSecondary else SunlightPalette.secondaryText,
+      )
+    }
+    MorningRoutinePanel(
+        state,
+        onManageTimes,
+        onAddSunlightTime,
+        onChooseDuration,
+        onDebugSpeedChange,
+    )
+    if (!active) HomeActions(state, onBeginFocus, onDebugSunlight)
+    if (state.cameraPermissionNeeded && !state.debugMode) {
+      RoutineAction("Allow camera", onEnableCamera, filled = false, accent = accent)
+    }
+  }
+}
+
 @Suppress("FunctionNaming")
 @Composable
 private fun HomeActions(state: SunlightScreenState, onBegin: () -> Unit, onDebug: () -> Unit) {
@@ -115,13 +156,13 @@ private fun HomeActions(state: SunlightScreenState, onBegin: () -> Unit, onDebug
       onBegin,
   )
   RoutineLabel(
-      "Preview: no alarm or app blocking yet. One light check starts your timer.",
+      "Preview: no alarm or app blocking yet. Each saved time starts a light check.",
       SunlightPalette.secondaryText,
   )
   if (state.debugAvailable) {
     RoutineAction("Debug: simulate sunlight", onDebug, filled = false)
     RoutineLabel(
-        "Starts a test now using simulated camera brightness. Your saved wake-up time stays the same.",
+        "Starts a test now using simulated camera brightness. Your saved schedule stays the same.",
         SunlightPalette.secondaryText,
     )
   }

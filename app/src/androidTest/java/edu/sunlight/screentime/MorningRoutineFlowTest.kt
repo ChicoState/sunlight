@@ -67,7 +67,7 @@ class MorningRoutineFlowTest {
   @Test
   fun startingBeforeWakeUpWaitsWithoutRequestingCamera() {
     val future = LocalTime.now().plusMinutes(10)
-    compose.onNodeWithTag("wake-up-time").performScrollTo().performClick()
+    compose.onNodeWithText("Add Sunlight Time").performScrollTo().performClick()
     onView(isAssignableFrom(TimePicker::class.java)).inRoot(isDialog()).check { view, error ->
       if (error != null) throw error
       (view as TimePicker).apply {
@@ -75,9 +75,13 @@ class MorningRoutineFlowTest {
         minute = future.minute
       }
     }
-    onView(withText("Set time")).inRoot(isDialog()).perform(click())
+    onView(withText("Save")).inRoot(isDialog()).perform(click())
+    compose.onNodeWithTag("tab-Home").performClick()
     compose.onNodeWithText("Try morning routine").performScrollTo().performClick()
-    compose.onNodeWithText("Waiting for wake-up time.").performScrollTo().assertIsDisplayed()
+    compose
+        .onNodeWithText("Waiting for the next Sunlight Time.")
+        .performScrollTo()
+        .assertIsDisplayed()
     compose.onNodeWithText("Allow camera").assertDoesNotExist()
     compose.onNodeWithText("Debug: simulate sunlight").assertDoesNotExist()
     compose.onNodeWithTag("debug-speed").assertDoesNotExist()

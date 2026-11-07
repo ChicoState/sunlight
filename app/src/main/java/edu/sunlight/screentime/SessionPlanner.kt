@@ -5,10 +5,15 @@ import java.time.LocalTime
 import java.time.ZoneId
 
 internal object SessionPlanner {
-  fun nextRelease(now: Instant, releaseTime: LocalTime, zone: ZoneId): Instant {
+  fun nextRelease(now: Instant, releaseTimes: List<LocalTime>, zone: ZoneId): Instant? {
+    if (releaseTimes.isEmpty()) return null
     val today = now.atZone(zone).toLocalDate()
-    val candidate = today.atTime(releaseTime).atZone(zone).toInstant()
-    return if (candidate.isAfter(now)) candidate
-    else today.plusDays(1).atTime(releaseTime).atZone(zone).toInstant()
+    return releaseTimes
+        .map { releaseTime ->
+          val candidate = today.atTime(releaseTime).atZone(zone).toInstant()
+          if (candidate.isAfter(now)) candidate
+          else today.plusDays(1).atTime(releaseTime).atZone(zone).toInstant()
+        }
+        .minOrNull()
   }
 }

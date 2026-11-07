@@ -12,7 +12,7 @@ This repository has an Android infrastructure foundation and a Compose morning-r
 - `Dockerfile`, `.dockerignore` — reproducible command-line Android build environment; no services or production image.
 - `.github/workflows/` — pull-request checks and guarded GitHub Release workflow.
 - `README.md` and `infrastructure_plan.md` — developer setup and approved infrastructure decisions.
-- `.agents/skills/` — project skills. No API/backend exists; alarms, app restrictions, and repeated sunlight checks are not implemented.
+- `.agents/skills/` — project skills. No API/backend exists; Android alarms, app restrictions, and continuous sunlight checks during a timer are not implemented.
 
 ## Required workflow
 

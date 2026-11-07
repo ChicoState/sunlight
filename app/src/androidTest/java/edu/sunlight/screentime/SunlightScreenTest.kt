@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -19,13 +20,14 @@ class SunlightScreenTest {
   @get:Rule val compose = createComposeRule()
 
   @Test
-  fun setupKeepsTimePickerAndStartAccessible() {
+  fun setupKeepsScheduleEditorAndStartAccessible() {
     var timeChoices = 0
     var starts = 0
     compose.setContent {
       SunlightScreen(screenState(FocusPhase.SETUP), { timeChoices++ }, { starts++ }, {})
     }
-    compose.onNodeWithTag("wake-up-time").performScrollTo().performClick()
+    compose.onNodeWithText("Add Sunlight Time").performScrollTo().performClick()
+    compose.onNodeWithTag("tab-Home").performClick()
     compose.onNodeWithText("Try morning routine").performScrollTo().performClick()
     compose.runOnIdle {
       assertEquals(1, timeChoices)
@@ -86,7 +88,44 @@ class SunlightScreenTest {
       compose.onNodeWithText("Try morning routine").assertDoesNotExist()
     }
     compose.onNodeWithTag("tab-Home").performClick().assertIsSelected()
-    compose.onNodeWithText("Wake-up time").performScrollTo().assertIsDisplayed()
+    compose.onNodeWithText("Next Sunlight Time").performScrollTo().assertIsDisplayed()
+  }
+
+  @Test
+  fun homeAddActionOpensAlarmsAndAlarmsShowsEverySunlightTime() {
+    var additions = 0
+    compose.setContent {
+      SunlightScreen(
+          screenState(FocusPhase.SETUP),
+          { additions++ },
+          {},
+          {},
+      )
+    }
+
+    compose.onNodeWithText("Add Sunlight Time").performScrollTo().performClick()
+    compose.onNodeWithTag("page-Alarms").assertIsDisplayed()
+    compose.onNodeWithText("7:00 AM").assertIsDisplayed()
+    compose.onNodeWithText("1:05 PM").assertIsDisplayed()
+    compose.runOnIdle { assertEquals(1, additions) }
+  }
+
+  @Test
+  fun alarmsTrashActionRemovesTheSelectedTime() {
+    var removed: LocalTime? = null
+    compose.setContent {
+      SunlightScreen(
+          screenState(FocusPhase.SETUP),
+          {},
+          {},
+          {},
+          onRemoveSunlightTime = { removed = it },
+      )
+    }
+
+    compose.onNodeWithTag("tab-Alarms").performClick()
+    compose.onNodeWithContentDescription("Remove 1:05 PM").performClick()
+    compose.runOnIdle { assertEquals(LocalTime.of(13, 5), removed) }
   }
 
   @Test
@@ -144,11 +183,12 @@ class SunlightScreenTest {
   private fun screenState(phase: FocusPhase): SunlightScreenState {
     val now = Instant.parse("2026-10-21T06:00:00Z")
     return SunlightScreenState(
-        releaseTime = LocalTime.of(7, 0),
+        nextSunlightTime = LocalTime.of(7, 0),
         phase = phase,
         statusMessage = "Session status",
         displayNow = now,
         countdownEndsAt = now.plusSeconds(899),
+        sunlightTimes = listOf(LocalTime.of(7, 0), LocalTime.of(13, 5)),
     )
   }
 }

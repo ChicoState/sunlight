@@ -11,7 +11,7 @@ private const val SECONDS_PER_MINUTE = 60
 private val timeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.US)
 
 internal data class SunlightScreenState(
-    val releaseTime: LocalTime?,
+    val nextSunlightTime: LocalTime?,
     val phase: FocusPhase,
     val statusMessage: String,
     val displayNow: Instant,
@@ -21,6 +21,7 @@ internal data class SunlightScreenState(
     val debugMode: Boolean = false,
     val cameraPermissionNeeded: Boolean = false,
     val debugSpeed: Int = 1,
+    val sunlightTimes: List<LocalTime> = listOfNotNull(nextSunlightTime),
 )
 
 internal enum class FocusPhase(val title: String, val guidance: String) {
@@ -29,7 +30,7 @@ internal enum class FocusPhase(val title: String, val guidance: String) {
       "A little sunlight before you start scrolling.",
   ),
   WAITING(
-      "Waiting for wake-up time.",
+      "Waiting for the next Sunlight Time.",
       "Keep Sunlight open for this preview. No alarm will ring and your apps remain available.",
   ),
   SEEKING_SUNLIGHT(

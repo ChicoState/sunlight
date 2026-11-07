@@ -21,6 +21,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -36,12 +37,15 @@ import kotlinx.coroutines.launch
 private val android.content.Context.focusDataStore by preferencesDataStore(name = "focus_settings")
 private val releaseHourKey = intPreferencesKey("release_hour")
 private val releaseMinuteKey = intPreferencesKey("release_minute")
+private val sunlightTimesKey = stringSetPreferencesKey("sunlight_times")
 private val sunlightMinutesKey = intPreferencesKey("sunlight_minutes")
 private const val FOCUS_SCREEN_BRIGHTNESS = 0.03f
 
 @Suppress("TooManyFunctions")
 class SunlightActivity : ComponentActivity() {
-  private var releaseTime by mutableStateOf<LocalTime?>(null)
+  private var sunlightTimes by mutableStateOf(emptyList<LocalTime>())
+  private var nextSunlightTime by mutableStateOf<LocalTime?>(null)
+  private var nextSunlightAt: Instant? = null
   private var phase by mutableStateOf(FocusPhase.SETUP)
   private var statusMessage by mutableStateOf("")
   private var sunlightMinutes by mutableStateOf(DEFAULT_SUNLIGHT_MINUTES)
@@ -69,18 +73,12 @@ class SunlightActivity : ComponentActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    lifecycleScope.launch {
-      val preferences = focusDataStore.data.first()
-      val hour = preferences[releaseHourKey]
-      val minute = preferences[releaseMinuteKey]
-      if (hour != null && minute != null) releaseTime = LocalTime.of(hour, minute)
-      sunlightMinutes = sunlightMinutesOrDefault(preferences[sunlightMinutesKey])
-    }
+    lifecycleScope.launch { loadSettings() }
     setContent {
       SunlightScreen(
           state =
               SunlightScreenState(
-                  releaseTime = releaseTime,
+                  nextSunlightTime = nextSunlightTime,
                   phase = phase,
                   statusMessage = statusMessage,
                   displayNow = displayNow,
@@ -90,14 +88,17 @@ class SunlightActivity : ComponentActivity() {
                   debugMode = debugMode,
                   debugSpeed = debugSpeed,
                   cameraPermissionNeeded = cameraPermissionNeeded,
+                  sunlightTimes = sunlightTimes,
               ),
-          onChooseReleaseTime = ::chooseReleaseTime,
+          onAddSunlightTime = ::addSunlightTime,
           onBeginFocus = ::beginFocus,
           onEndSession = ::endSession,
           onChooseDuration = ::chooseSunlightDuration,
           onDebugSunlight = ::testSunlight,
           onEnableCamera = ::requestCamera,
           onDebugSpeedChange = ::changeDebugSpeed,
+          onEditSunlightTime = ::editSunlightTime,
+          onRemoveSunlightTime = ::removeSunlightTime,
       )
     }
     lifecycleScope.launch {
@@ -129,36 +130,50 @@ class SunlightActivity : ComponentActivity() {
     super.onStop()
   }
 
-  private fun chooseReleaseTime() {
-    val current = releaseTime ?: LocalTime.of(DEFAULT_RELEASE_HOUR, 0)
+  private fun addSunlightTime() {
+    chooseSunlightTime(null)
+  }
+
+  private fun editSunlightTime(time: LocalTime) {
+    chooseSunlightTime(time)
+  }
+
+  private fun removeSunlightTime(time: LocalTime) {
+    if (phase.isActive()) return
+    sunlightTimes = sunlightTimes.filterNot { it == time }
+    persistSunlightTimes()
+    refreshScheduleAfterEdit()
+    statusMessage = "Removed the ${displayTime(time)} Sunlight Time."
+  }
+
+  private fun chooseSunlightTime(existingTime: LocalTime?) {
+    if (phase.isActive()) return
+    val current = existingTime ?: nextSunlightTime ?: LocalTime.of(DEFAULT_RELEASE_HOUR, 0)
     val pickerView = layoutInflater.inflate(R.layout.release_time_picker, null)
     val picker = pickerView.findViewById<TimePicker>(R.id.release_time_picker)
     picker.setIs24HourView(false)
     picker.hour = current.hour
     picker.minute = current.minute
     AlertDialog.Builder(this)
-        .setTitle("Wake-up time")
+        .setTitle(if (existingTime == null) "Add Sunlight Time" else "Edit Sunlight Time")
         .setView(pickerView)
         .setNegativeButton(android.R.string.cancel, null)
-        .setPositiveButton("Set time") { _, _ ->
+        .setPositiveButton("Save") { _, _ ->
           // Commit any keyboard edit before reading the native spinner's value.
           picker.clearFocus()
           val selected = LocalTime.of(picker.hour, picker.minute)
-          releaseTime = selected
-          lifecycleScope.launch {
-            focusDataStore.edit { preferences ->
-              preferences[releaseHourKey] = selected.hour
-              preferences[releaseMinuteKey] = selected.minute
-            }
-          }
-          statusMessage = "Wake-up time: ${displayTime(selected)}. Try the routine below."
+          sunlightTimes =
+              normalizeSunlightTimes(sunlightTimes.filterNot { it == existingTime } + selected)
+          persistSunlightTimes()
+          refreshScheduleAfterEdit()
+          statusMessage = "Sunlight Time saved for ${displayTime(selected)}."
         }
         .show()
   }
 
   private fun beginFocus() {
-    if (releaseTime == null) {
-      statusMessage = "Choose your wake-up time first."
+    if (sunlightTimes.isEmpty()) {
+      statusMessage = "Add at least one Sunlight Time first."
       return
     }
     startSession(debug = false)
@@ -175,13 +190,16 @@ class SunlightActivity : ComponentActivity() {
     debugClock = if (debug) DebugClock(now, SystemClock.elapsedRealtimeNanos()) else null
     val wakeAt =
         if (debug) now
-        else SessionPlanner.nextRelease(now, requireNotNull(releaseTime), ZoneId.systemDefault())
+        else requireNotNull(SessionPlanner.nextRelease(now, sunlightTimes, ZoneId.systemDefault()))
+    nextSunlightAt = if (debug) null else wakeAt
     routine = MorningRoutine(wakeAt, sunlightMinutes)
     phase = FocusPhase.WAITING
     statusMessage =
         if (debug) "Debug test: simulated sunlight. Camera stays off."
-        else
-            "Sunlight checking starts at ${displayTime(requireNotNull(releaseTime))}. Camera stays off until then."
+        else {
+          val wakeTime = wakeAt.atZone(ZoneId.systemDefault()).toLocalTime()
+          "Sunlight checking starts at ${displayTime(wakeTime)}. Camera stays off until then."
+        }
     enterFocusDisplay()
     updateSession()
   }
@@ -189,8 +207,18 @@ class SunlightActivity : ComponentActivity() {
   private fun updateSession() {
     val now = routineNow()
     displayNow = now
+    if (!debugMode) refreshNextSunlightTime(now)
     val current = routine ?: return
     val previous = current.phase
+    if (!debugMode) {
+      latestScheduledTimeDue(now)?.let { scheduledAt ->
+        stopCamera()
+        current.reset(scheduledAt)
+        countdownEndsAt = null
+        if (!previous.isActive()) enterFocusDisplay()
+        statusMessage = "It is time for another sunlight check."
+      }
+    }
     current.advance(now)
     phase = current.phase
     if (phase == FocusPhase.COMPLETE && previous != phase) finishSession()
@@ -281,7 +309,7 @@ class SunlightActivity : ComponentActivity() {
 
   private fun finishSession() {
     phase = FocusPhase.COMPLETE
-    statusMessage = "Your morning timer is complete."
+    statusMessage = "Your sunlight timer is complete. The next saved time will start a new check."
     leaveFocusDisplay()
   }
 
@@ -289,6 +317,7 @@ class SunlightActivity : ComponentActivity() {
     stopCamera()
     phase = FocusPhase.SETUP
     routine = null
+    nextSunlightAt = null
     countdownEndsAt = null
     debugMode = false
     debugClock = null
@@ -301,6 +330,63 @@ class SunlightActivity : ComponentActivity() {
   private companion object {
     const val DEFAULT_RELEASE_HOUR = 7
     const val SIMULATED_BRIGHTNESS = 255
+  }
+
+  private fun persistSunlightTimes() {
+    lifecycleScope.launch {
+      focusDataStore.edit { preferences ->
+        preferences[sunlightTimesKey] = encodeSunlightTimes(sunlightTimes)
+      }
+    }
+  }
+
+  private suspend fun loadSettings() {
+    val preferences = focusDataStore.data.first()
+    val storedTimes = preferences[sunlightTimesKey]
+    val hour = preferences[releaseHourKey]
+    val minute = preferences[releaseMinuteKey]
+    val legacyTime =
+        if (hour != null && minute != null) runCatching { LocalTime.of(hour, minute) }.getOrNull()
+        else null
+    sunlightTimes =
+        if (storedTimes != null) decodeSunlightTimes(storedTimes)
+        else normalizeSunlightTimes(listOfNotNull(legacyTime))
+    if (storedTimes == null && legacyTime != null) {
+      focusDataStore.edit { mutablePreferences ->
+        mutablePreferences[sunlightTimesKey] = encodeSunlightTimes(sunlightTimes)
+        mutablePreferences.remove(releaseHourKey)
+        mutablePreferences.remove(releaseMinuteKey)
+      }
+    }
+    sunlightMinutes = sunlightMinutesOrDefault(preferences[sunlightMinutesKey])
+    refreshNextSunlightTime(Instant.now())
+  }
+
+  private fun refreshScheduleAfterEdit() {
+    val now = Instant.now()
+    if (routine != null && !debugMode) {
+      nextSunlightAt = SessionPlanner.nextRelease(now, sunlightTimes, ZoneId.systemDefault())
+    }
+    refreshNextSunlightTime(now)
+  }
+
+  private fun refreshNextSunlightTime(now: Instant) {
+    val next =
+        if (routine != null && !debugMode) nextSunlightAt
+        else SessionPlanner.nextRelease(now, sunlightTimes, ZoneId.systemDefault())
+    nextSunlightTime = next?.atZone(ZoneId.systemDefault())?.toLocalTime()
+  }
+
+  private fun latestScheduledTimeDue(now: Instant): Instant? {
+    var latestDue: Instant? = null
+    var next = nextSunlightAt
+    while (next != null && !now.isBefore(next)) {
+      latestDue = next
+      next = SessionPlanner.nextRelease(next, sunlightTimes, ZoneId.systemDefault())
+    }
+    nextSunlightAt = next
+    refreshNextSunlightTime(now)
+    return latestDue
   }
 }
 

@@ -62,6 +62,24 @@ class MorningRoutineTest {
   }
 
   @Test
+  fun `a later sunlight time resets an active countdown and requires light again`() {
+    val routine = MorningRoutine(wakeAt, 15)
+    routine.advance(wakeAt)
+    routine.acceptLight(255, wakeAt)
+    routine.acceptLight(255, wakeAt.plusSeconds(3))
+    assertEquals(FocusPhase.FINAL_COUNTDOWN, routine.phase)
+
+    val laterTime = wakeAt.plusSeconds(300)
+    routine.reset(laterTime)
+    routine.advance(laterTime)
+
+    assertEquals(FocusPhase.SEEKING_SUNLIGHT, routine.phase)
+    assertNull(routine.countdownEndsAt)
+    routine.acceptLight(255, laterTime)
+    assertNull(routine.countdownEndsAt)
+  }
+
+  @Test
   fun `duration is bounded and corrupt saved values fall back to default`() {
     listOf(0, -1, 121, Int.MAX_VALUE).forEach { minutes ->
       assertThrows(IllegalArgumentException::class.java) { MorningRoutine(wakeAt, minutes) }
