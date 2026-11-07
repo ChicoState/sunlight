@@ -6,16 +6,26 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import java.nio.ByteBuffer
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
+/**
+ * Binds front-camera analysis to the activity. Luminance is computed on a background thread and
+ * readings are delivered on the main thread; frames stay in memory and are never stored.
+ */
 internal class SunlightCamera(
     private val activity: ComponentActivity,
     private val onLightReading: (Int) -> Unit,
 ) {
   private var cameraProvider: ProcessCameraProvider? = null
-  private var generation = 0
+  private var analysisExecutor: ExecutorService? = null
+  @Volatile private var generation = 0
 
   fun start() {
     val request = ++generation
+    analysisExecutor?.shutdown()
+    val executor = Executors.newSingleThreadExecutor().also { analysisExecutor = it }
+    val mainExecutor = ContextCompat.getMainExecutor(activity)
     val providerFuture = ProcessCameraProvider.getInstance(activity)
     providerFuture.addListener(
         {
@@ -26,9 +36,12 @@ internal class SunlightCamera(
               ImageAnalysis.Builder()
                   .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                   .build()
-          analysis.setAnalyzer(ContextCompat.getMainExecutor(activity)) { frame ->
+          analysis.setAnalyzer(executor) { frame ->
             try {
-              if (request == generation) onLightReading(meanLuma(frame.planes[0].buffer))
+              if (request == generation) {
+                val luma = meanLuma(frame.planes[0].buffer)
+                mainExecutor.execute { if (request == generation) onLightReading(luma) }
+              }
             } finally {
               frame.close()
             }
@@ -36,7 +49,7 @@ internal class SunlightCamera(
           provider.unbindAll()
           provider.bindToLifecycle(activity, CameraSelector.DEFAULT_FRONT_CAMERA, analysis)
         },
-        ContextCompat.getMainExecutor(activity),
+        mainExecutor,
     )
   }
 
@@ -44,6 +57,8 @@ internal class SunlightCamera(
     generation++
     cameraProvider?.unbindAll()
     cameraProvider = null
+    analysisExecutor?.shutdown()
+    analysisExecutor = null
   }
 
   private fun meanLuma(buffer: ByteBuffer): Int {
