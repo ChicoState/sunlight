@@ -78,10 +78,11 @@ internal class SunlightViewModel(
   fun tick() = update { session?.advance() }
 
   fun startRoutine(debug: Boolean) {
+    if (session?.routine?.phase?.isActive() == true) return
     val now = wallClock.now()
     val releaseTime = routineSettings.releaseTime
     val wakeAt =
-        if (debug) now.takeIf { debugAvailable && session?.routine?.phase?.isActive() != true }
+        if (debug) now.takeIf { debugAvailable }
         else releaseTime?.let { SessionPlanner.nextRelease(now, it, ZoneId.systemDefault()) }
     update {
       if (wakeAt == null) {
@@ -115,10 +116,9 @@ internal class SunlightViewModel(
 
   /** Duration is frozen during a routine; each routine snapshots it when it starts. */
   fun saveSunlightMinutes(minutes: Int) {
-    if (session?.routine?.phase?.isActive() == true) return
-    val valid = sunlightMinutesOrDefault(minutes)
-    update { routineSettings = routineSettings.copy(sunlightMinutes = valid) }
-    viewModelScope.launch { settings.saveSunlightMinutes(valid) }
+    if (session?.routine?.phase?.isActive() == true || minutes !in 1..MAX_SUNLIGHT_MINUTES) return
+    update { routineSettings = routineSettings.copy(sunlightMinutes = minutes) }
+    viewModelScope.launch { settings.saveSunlightMinutes(minutes) }
   }
 
   fun changeDebugSpeed(speed: Int) {
@@ -183,7 +183,7 @@ internal class SunlightViewModel(
     mutableState.value =
         SunlightScreenState(
             releaseTime = routineSettings.releaseTime,
-            phase = current?.routine?.phase ?: FocusPhase.SETUP,
+            phase = phase ?: FocusPhase.SETUP,
             statusMessage = status,
             displayNow = current?.now() ?: wallClock.now(),
             countdownEndsAt = current?.routine?.countdownEndsAt,

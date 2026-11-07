@@ -43,8 +43,9 @@ finished.
   `phase.isActive()` (`FocusDisplay.kt`), and camera binding. It reports camera conditions
   through `CameraEvent`; the ViewModel decides when to prompt (once per session).
 - Camera luminance is computed on a background executor and delivered on the main thread.
-- No new dependencies: `activity-compose` already provides `viewModels()`,
-  `SavedStateHandle`, and `collectAsStateWithLifecycle`. The ViewModel takes its coroutine
+- No new dependencies: `viewModels()`, `SavedStateHandle`, and
+  `collectAsStateWithLifecycle` are already on the compile classpath through
+  `activity-compose` and Compose UI. The ViewModel takes its coroutine
   scope as a constructor argument so JVM tests run without a Main dispatcher.
 
 ## Alternatives considered

@@ -46,7 +46,7 @@ internal class SettingsRepository(private val dataStore: DataStore<Preferences>)
   }
 
   suspend fun saveSunlightMinutes(minutes: Int) {
-    dataStore.edit { it[sunlightMinutesKey] = sunlightMinutesOrDefault(minutes) }
+    dataStore.edit { it[sunlightMinutesKey] = minutes }
   }
 }
 

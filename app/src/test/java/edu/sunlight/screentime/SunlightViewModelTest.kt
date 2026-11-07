@@ -126,6 +126,25 @@ class SunlightViewModelTest {
   }
 
   @Test
+  fun `out of range durations keep the saved value`() {
+    val store = FakePreferencesDataStore(settings(minutes = 30))
+    val model = viewModel(store = store)
+    model.saveSunlightMinutes(500)
+    assertEquals(30, model.state.value.sunlightMinutes)
+    assertEquals(30, runBlocking { SettingsRepository(store).settings.first().sunlightMinutes })
+  }
+
+  @Test
+  fun `starting again during an active routine keeps the running session`() {
+    val model = viewModel()
+    model.reachCountdown()
+    val countdownEndsAt = model.state.value.countdownEndsAt
+    model.startRoutine(debug = false)
+    assertEquals(FocusPhase.FINAL_COUNTDOWN, model.state.value.phase)
+    assertEquals(countdownEndsAt, model.state.value.countdownEndsAt)
+  }
+
+  @Test
   fun `duration edits are rejected during an active routine`() {
     val store = FakePreferencesDataStore(settings(minutes = 5))
     val model = viewModel(store = store)

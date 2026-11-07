@@ -61,11 +61,4 @@ class SettingsRepositoryTest {
     assertEquals(5, raw[intPreferencesKey("release_minute")])
     assertEquals(1, raw[intPreferencesKey("sunlight_minutes")])
   }
-
-  @Test
-  fun `out of range durations are not persisted`() = runBlocking {
-    val repository = SettingsRepository(FakePreferencesDataStore())
-    repository.saveSunlightMinutes(500)
-    assertEquals(DEFAULT_SUNLIGHT_MINUTES, repository.settings.first().sunlightMinutes)
-  }
 }
