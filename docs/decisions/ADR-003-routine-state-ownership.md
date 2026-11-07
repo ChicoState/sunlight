@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted. Refines how ADR-002's behavior is implemented; no product behavior changes.
+Accepted. Refines how ADR-002's behavior is implemented. The one product change is that an
+in-progress routine now survives rotation and process death.
 
 ## Date
 
