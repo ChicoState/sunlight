@@ -45,6 +45,7 @@ class SunlightViewModelTest {
       SunlightViewModel(
           savedState = handle,
           settings = SettingsRepository(store),
+          streaks = StreakRepository(store),
           debugAvailable = debugAvailable,
           wallClock = { wallNow },
           elapsedNanos = { elapsedNanos },
@@ -108,6 +109,33 @@ class SunlightViewModelTest {
     assertEquals(FocusPhase.COMPLETE, model.state.value.phase)
     assertFalse(model.state.value.phase.isActive())
     assertEquals("Your morning timer is complete.", model.state.value.statusMessage)
+  }
+
+  @Test
+  fun `normal completion records one persisted streak`() {
+    val store = FakePreferencesDataStore(settings())
+    val model = viewModel(store = store)
+    model.reachCountdown()
+    wallNow = wakeAt.plusSeconds(3 + 5 * 60)
+
+    model.tick()
+    model.tick()
+
+    assertEquals(1, runBlocking { StreakRepository(store).streak.first().currentStreak })
+  }
+
+  @Test
+  fun `debug completion does not record a streak`() {
+    val store = FakePreferencesDataStore(settings())
+    val model = viewModel(store = store)
+    model.startRoutine(debug = true)
+    elapsedNanos = 3_000_000_000
+    model.tick()
+    elapsedNanos = 303_000_000_000
+
+    model.tick()
+
+    assertEquals(0, runBlocking { StreakRepository(store).streak.first().currentStreak })
   }
 
   @Test

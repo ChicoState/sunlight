@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalTime
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -75,6 +76,22 @@ class SunlightScreenTest {
     compose.onNodeWithText("Morning routine complete.").assertIsDisplayed()
     compose.onNodeWithText("Try morning routine again").performScrollTo().performClick()
     compose.runOnIdle { assertEquals(1, starts) }
+  }
+
+  @Test
+  fun homeShowsCurrentAndBestStreak() {
+    compose.setContent {
+      SunlightScreen(
+          screenState(FocusPhase.SETUP).copy(streak = StreakState(3, 7, LocalDate.of(2026, 11, 2))),
+          {},
+          {},
+          {},
+      )
+    }
+
+    compose.onNodeWithTag("streak-summary").assertIsDisplayed()
+    compose.onNodeWithText("3-day streak").assertIsDisplayed()
+    compose.onNodeWithText("Best: 7 days").assertIsDisplayed()
   }
 
   @Test

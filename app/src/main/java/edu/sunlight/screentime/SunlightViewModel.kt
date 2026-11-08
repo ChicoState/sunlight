@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import kotlinx.coroutines.CoroutineScope
@@ -38,9 +39,11 @@ internal enum class CameraEvent {
  * into [SavedStateHandle] after every change so it survives configuration changes and process
  * death; settings come from [SettingsRepository] as a flow.
  */
+@Suppress("LongParameterList")
 internal class SunlightViewModel(
     private val savedState: SavedStateHandle,
     private val settings: SettingsRepository,
+    private val streaks: StreakRepository,
     private val debugAvailable: Boolean,
     private val wallClock: RoutineClock,
     private val elapsedNanos: () -> Long,
@@ -50,6 +53,7 @@ internal class SunlightViewModel(
   private var announcedPhase = session?.routine?.phase
   private var status: String = savedState[KEY_STATUS] ?: ""
   private var routineSettings = RoutineSettings()
+  private var savedStreak = StreakState()
   private val mutableState =
       MutableStateFlow(SunlightScreenState(null, FocusPhase.SETUP, status, wallClock.now(), null))
 
@@ -58,6 +62,7 @@ internal class SunlightViewModel(
   init {
     update {}
     viewModelScope.launch { settings.settings.collect { update { routineSettings = it } } }
+    viewModelScope.launch { streaks.streak.collect { update { savedStreak = it } } }
   }
 
   /**
@@ -174,6 +179,11 @@ internal class SunlightViewModel(
     change()
     val current = session
     val phase = current?.routine?.phase
+    val completedNormally =
+        current != null &&
+            phase == FocusPhase.COMPLETE &&
+            announcedPhase != FocusPhase.COMPLETE &&
+            !current.isDebug
     if (current != null && phase != announcedPhase) {
       phaseNotice(current)?.let { status = it }
     }
@@ -192,7 +202,15 @@ internal class SunlightViewModel(
             debugMode = current?.isDebug ?: false,
             cameraPermissionNeeded = current?.cameraPermissionNeeded ?: false,
             debugSpeed = current?.debugSpeed ?: 1,
+            streak =
+                savedStreak.copy(
+                    currentStreak =
+                        StreakCalculator.currentStreakForToday(savedStreak, LocalDate.now())
+                ),
         )
+    if (completedNormally) {
+      viewModelScope.launch { streaks.recordCompletion(LocalDate.now()) }
+    }
   }
 
   companion object {
@@ -203,6 +221,7 @@ internal class SunlightViewModel(
           SunlightViewModel(
               savedState = createSavedStateHandle(),
               settings = SettingsRepository(appContext.focusDataStore),
+              streaks = StreakRepository(appContext.focusDataStore),
               debugAvailable = debugAvailable,
               wallClock = { Instant.now() },
               elapsedNanos = SystemClock::elapsedRealtimeNanos,

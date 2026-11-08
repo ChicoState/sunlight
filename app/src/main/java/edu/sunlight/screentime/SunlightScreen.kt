@@ -35,7 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-@Suppress("FunctionNaming", "LongParameterList")
+@Suppress("FunctionNaming", "LongMethod", "LongParameterList")
 @Composable
 internal fun SunlightScreen(
     state: SunlightScreenState,
@@ -80,6 +80,7 @@ internal fun SunlightScreen(
                 "A brighter start to your day.",
                 if (active) SunlightPalette.nightSecondary else SunlightPalette.secondaryText,
             )
+            StreakSummary(state.streak, accent = accent)
           }
           MorningRoutinePanel(state, onChooseReleaseTime, onChooseDuration, onDebugSpeedChange)
           if (!active) {
