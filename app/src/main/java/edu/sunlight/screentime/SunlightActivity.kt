@@ -1,9 +1,13 @@
 package edu.sunlight.screentime
 
 import android.Manifest
+import android.app.AlertDialog
+import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -41,6 +45,10 @@ class SunlightActivity : ComponentActivity() {
         if (!granted) viewModel.onCameraEvent(CameraEvent.PERMISSION_DENIED)
       }
 
+  private var overlayPermissionRequested = false
+  private var requestOverlayPermissionAfterNightDisplay = false
+  private var appInBackground = false
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     setContent {
@@ -50,7 +58,12 @@ class SunlightActivity : ComponentActivity() {
           onChooseReleaseTime = {
             showWakeUpTimePicker(viewModel.state.value.releaseTime, viewModel::saveReleaseTime)
           },
-          onBeginFocus = { viewModel.startRoutine(debug = false) },
+          onBeginFocus = {
+            viewModel.startRoutine(debug = false)
+            if (viewModel.state.value.phase.isActive()) {
+              requestNightDisplaySetup()
+            }
+          },
           onEndSession = viewModel::endSession,
           onChooseDuration = {
             val current = viewModel.state.value
@@ -75,14 +88,31 @@ class SunlightActivity : ComponentActivity() {
               .distinctUntilChanged()
               .collect(::applyFocusDisplay)
         }
-        viewModel.state.collect(::syncCamera)
+        launch {
+          viewModel.state.collect { state ->
+            syncCamera(state)
+            syncBlueLightFilter()
+          }
+        }
       }
     }
+  }
+
+  override fun onResume() {
+    super.onResume()
+    appInBackground = false
+    if (requestOverlayPermissionAfterNightDisplay) {
+      requestOverlayPermissionAfterNightDisplay = false
+      requestOverlayPermissionIfNeeded()
+    }
+    syncBlueLightFilter()
   }
 
   override fun onStop() {
     stopCamera()
     viewModel.onCameraEvent(CameraEvent.STOPPED)
+    appInBackground = true
+    syncBlueLightFilter()
     super.onStop()
   }
 
@@ -108,5 +138,52 @@ class SunlightActivity : ComponentActivity() {
   private fun stopCamera() {
     sunlightCamera.stop()
     cameraRunning = false
+  }
+
+  private fun requestOverlayPermissionIfNeeded() {
+    if (
+        viewModel.state.value.debugMode ||
+            Settings.canDrawOverlays(this) ||
+            overlayPermissionRequested
+    )
+        return
+    overlayPermissionRequested = true
+    startActivity(
+        Intent(
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            Uri.parse("package:$packageName"),
+        )
+    )
+  }
+
+  private fun requestNightDisplaySetup() {
+    if (viewModel.state.value.debugMode) return
+    val nightDisplaySettings = Intent(Settings.ACTION_NIGHT_DISPLAY_SETTINGS)
+    if (nightDisplaySettings.resolveActivity(packageManager) == null) {
+      requestOverlayPermissionIfNeeded()
+      return
+    }
+    AlertDialog.Builder(this)
+        .setTitle("Enable Android Night Light?")
+        .setMessage(
+            "Night Light is Android's built-in blue-light filter. Open its settings to enable it and choose your preferred intensity."
+        )
+        .setNegativeButton("Not now") { _, _ -> requestOverlayPermissionIfNeeded() }
+        .setPositiveButton("Open settings") { _, _ ->
+          requestOverlayPermissionAfterNightDisplay = true
+          startActivity(nightDisplaySettings)
+        }
+        .setOnCancelListener { requestOverlayPermissionIfNeeded() }
+        .show()
+  }
+
+  private fun syncBlueLightFilter() {
+    val state = viewModel.state.value
+    val authorized = !state.debugMode && Settings.canDrawOverlays(this)
+    if (state.phase.shouldRunBlueLightFilter(authorized, appInBackground)) {
+      BlueLightFilterService.start(this)
+    } else {
+      BlueLightFilterService.stop(this)
+    }
   }
 }

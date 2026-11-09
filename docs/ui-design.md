@@ -30,6 +30,15 @@ still need definition. Fifteen minutes is the default, not a fixed requirement.
   A monotonic simulated clock preserves elapsed progress when speed changes;
   light detection, countdown display, and completion share that clock. Reset to
   1× on each new run. Normal routines keep real-time behavior.
+- During a normal active routine, request the user-managed draw-over-other-apps
+  permission and show a semi-transparent red/amber overlay through a foreground
+  service only while Sunlight is in the background. Returning to Sunlight removes
+  the overlay. This is an app overlay, not Android's global Night Light setting;
+  it is unavailable when the user denies the permission and is disabled for debug
+  runs.
+- At the start of a normal routine, ask the user whether to open Android's Night
+  Display settings. The app cannot enable or configure this system setting itself;
+  users may enable it and choose its intensity there.
 - Retain bottom navigation outside scrolling content: Home, Blocked apps, Alarms,
   Settings. Settings stays farthest right. The latter three pages remain title-only
   placeholders. Each icon has a text label and tab selection semantics.
