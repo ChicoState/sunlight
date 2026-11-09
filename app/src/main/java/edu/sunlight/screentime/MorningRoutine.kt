@@ -16,7 +16,7 @@ internal fun sunlightMinutesOrDefault(minutes: Int?): Int =
  * always derived from these values rather than stored separately.
  */
 internal class MorningRoutine(
-    val wakeAt: Instant,
+    var wakeAt: Instant,
     val sunlightMinutes: Int,
     countdownEndsAt: Instant? = null,
 ) {
@@ -56,6 +56,13 @@ internal class MorningRoutine(
 
   fun resetLightCheck() {
     brightSince = null
+  }
+
+  fun reset(nextWakeAt: Instant) {
+    wakeAt = nextWakeAt
+    phase = FocusPhase.WAITING
+    countdownEndsAt = null
+    resetLightCheck()
   }
 
   private companion object {

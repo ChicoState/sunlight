@@ -48,7 +48,7 @@ class SettingsRepositoryTest {
   }
 
   @Test
-  fun `saved values round trip under the existing keys`() = runBlocking {
+  fun `saved values round trip under the new keys`() = runBlocking {
     val store = FakePreferencesDataStore()
     val repository = SettingsRepository(store)
     repository.saveReleaseTime(LocalTime.of(13, 5))
@@ -57,8 +57,10 @@ class SettingsRepositoryTest {
     assertEquals(LocalTime.of(13, 5), settings.releaseTime)
     assertEquals(1, settings.sunlightMinutes)
     val raw = store.data.first()
-    assertEquals(13, raw[intPreferencesKey("release_hour")])
-    assertEquals(5, raw[intPreferencesKey("release_minute")])
+    assertEquals(
+        setOf("785"),
+        raw[androidx.datastore.preferences.core.stringSetPreferencesKey("sunlight_times")],
+    )
     assertEquals(1, raw[intPreferencesKey("sunlight_minutes")])
   }
 }

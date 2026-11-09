@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import java.time.LocalTime
 import kotlinx.coroutines.flow.Flow
@@ -16,33 +17,58 @@ internal val Context.focusDataStore by preferencesDataStore(name = "focus_settin
 // Existing key names; renaming them requires an explicit migration (see infrastructure_plan.md).
 private val releaseHourKey = intPreferencesKey("release_hour")
 private val releaseMinuteKey = intPreferencesKey("release_minute")
+private val sunlightTimesKey = stringSetPreferencesKey("sunlight_times")
 private val sunlightMinutesKey = intPreferencesKey("sunlight_minutes")
 private const val MAX_HOUR = 23
 private const val MAX_MINUTE = 59
 
 internal data class RoutineSettings(
-    val releaseTime: LocalTime? = null,
+    val sunlightTimes: List<LocalTime> = emptyList(),
     val sunlightMinutes: Int = DEFAULT_SUNLIGHT_MINUTES,
-)
+) {
+  val releaseTime: LocalTime?
+    get() = sunlightTimes.firstOrNull()
+}
 
 /** Wraps the local DataStore keys and validates every value read from disk. */
 internal class SettingsRepository(private val dataStore: DataStore<Preferences>) {
   val settings: Flow<RoutineSettings> =
       dataStore.data
           .map { preferences ->
+            val storedTimes = preferences[sunlightTimesKey]
+            val hour = preferences[releaseHourKey]
+            val minute = preferences[releaseMinuteKey]
+            val legacyTime = releaseTimeOrNull(hour, minute)
+            val times =
+                if (storedTimes != null) decodeSunlightTimes(storedTimes)
+                else normalizeSunlightTimes(listOfNotNull(legacyTime))
+
+            if (storedTimes == null && legacyTime != null) {
+              dataStore.edit { mutablePreferences ->
+                mutablePreferences[sunlightTimesKey] = encodeSunlightTimes(times)
+                mutablePreferences.remove(releaseHourKey)
+                mutablePreferences.remove(releaseMinuteKey)
+              }
+            }
+
             RoutineSettings(
-                releaseTime =
-                    releaseTimeOrNull(preferences[releaseHourKey], preferences[releaseMinuteKey]),
+                sunlightTimes = times,
                 sunlightMinutes = sunlightMinutesOrDefault(preferences[sunlightMinutesKey]),
             )
           }
           .distinctUntilChanged()
 
-  suspend fun saveReleaseTime(time: LocalTime) {
+  suspend fun saveSunlightTimes(times: List<LocalTime>) {
+    val normalized = normalizeSunlightTimes(times)
     dataStore.edit { preferences ->
-      preferences[releaseHourKey] = time.hour
-      preferences[releaseMinuteKey] = time.minute
+      preferences[sunlightTimesKey] = encodeSunlightTimes(normalized)
+      preferences.remove(releaseHourKey)
+      preferences.remove(releaseMinuteKey)
     }
+  }
+
+  suspend fun saveReleaseTime(time: LocalTime) {
+    saveSunlightTimes(listOf(time))
   }
 
   suspend fun saveSunlightMinutes(minutes: Int) {

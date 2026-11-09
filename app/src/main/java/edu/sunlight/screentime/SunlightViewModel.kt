@@ -80,27 +80,46 @@ internal class SunlightViewModel(
     }
   }
 
-  fun tick() = update { session?.advance() }
+  fun tick() = update {
+    val current = session
+    if (current != null) {
+      val now = current.now()
+      if (!current.isDebug) {
+        val nextDue =
+            latestScheduledTimeDue(
+                current.routine.wakeAt,
+                now,
+                routineSettings.sunlightTimes,
+            )
+        if (nextDue != null) {
+          current.routine.reset(nextDue)
+          status = "It is time for another sunlight check."
+        }
+      }
+      current.advance()
+    }
+  }
 
   fun startRoutine(debug: Boolean) {
     if (session?.routine?.phase?.isActive() == true) return
     val now = wallClock.now()
-    val releaseTime = routineSettings.releaseTime
+    val times = routineSettings.sunlightTimes
     val wakeAt =
         if (debug) now.takeIf { debugAvailable }
-        else releaseTime?.let { SessionPlanner.nextRelease(now, it, ZoneId.systemDefault()) }
+        else SessionPlanner.nextRelease(now, times, ZoneId.systemDefault())
     update {
       if (wakeAt == null) {
-        if (!debug) status = "Choose your wake-up time first."
+        if (!debug) status = "Add at least one Sunlight Time first."
       } else {
         val debugClock =
             if (debug) DebugRoutineClock(DebugClock(now, elapsedNanos()), elapsedNanos) else null
         val routine = MorningRoutine(wakeAt, routineSettings.sunlightMinutes)
         session = RoutineSession(routine, debugClock, wallClock).also { it.advance() }
+        val wakeTime = wakeAt.atZone(ZoneId.systemDefault()).toLocalTime()
         status =
             if (debug) "Debug test: simulated sunlight. Camera stays off."
             else
-                "Sunlight checking starts at ${releaseTime?.let(::displayTime)}. " +
+                "Sunlight checking starts at ${displayTime(wakeTime)}. " +
                     "Camera stays off until then."
       }
     }
@@ -112,11 +131,31 @@ internal class SunlightViewModel(
   }
 
   fun saveReleaseTime(time: LocalTime) {
+    saveSunlightTime(null, time)
+  }
+
+  fun saveSunlightTime(existingTime: LocalTime?, newTime: LocalTime) {
+    if (session?.routine?.phase?.isActive() == true) return
+    val currentTimes = routineSettings.sunlightTimes
+    val updated =
+        if (existingTime != null) currentTimes.filterNot { it == existingTime } + newTime
+        else currentTimes + newTime
+    val newTimes = normalizeSunlightTimes(updated)
     update {
-      routineSettings = routineSettings.copy(releaseTime = time)
-      status = "Wake-up time: ${displayTime(time)}. Try the routine below."
+      routineSettings = routineSettings.copy(sunlightTimes = newTimes)
+      status = "Sunlight Time saved for ${displayTime(newTime)}."
     }
-    viewModelScope.launch { settings.saveReleaseTime(time) }
+    viewModelScope.launch { settings.saveSunlightTimes(newTimes) }
+  }
+
+  fun removeSunlightTime(time: LocalTime) {
+    if (session?.routine?.phase?.isActive() == true) return
+    val newTimes = routineSettings.sunlightTimes.filterNot { it == time }
+    update {
+      routineSettings = routineSettings.copy(sunlightTimes = newTimes)
+      status = "Removed the ${displayTime(time)} Sunlight Time."
+    }
+    viewModelScope.launch { settings.saveSunlightTimes(newTimes) }
   }
 
   /** Duration is frozen during a routine; each routine snapshots it when it starts. */
@@ -142,8 +181,6 @@ internal class SunlightViewModel(
   fun onCameraEvent(event: CameraEvent): Boolean {
     val current = session?.takeIf { event == CameraEvent.STOPPED || it.needsCamera } ?: return false
     val prompt = event == CameraEvent.PERMISSION_MISSING && !current.cameraRequested
-    // The Activity reports this from its state collector, which would loop on the main thread if
-    // repeating a condition already in state published a new state with a new display time.
     val alreadyReported =
         event == CameraEvent.PERMISSION_MISSING &&
             current.cameraRequested &&
@@ -170,11 +207,7 @@ internal class SunlightViewModel(
     return prompt
   }
 
-  /**
-   * Applies [change], announces phase transitions, saves the session, and publishes state. The
-   * announced phase is tracked separately because camera frames change the routine before calling
-   * this.
-   */
+  /** Applies [change], announces phase transitions, saves the session, and publishes state. */
   private inline fun update(change: () -> Unit) {
     change()
     val current = session
@@ -190,12 +223,28 @@ internal class SunlightViewModel(
     announcedPhase = phase
     if (current == null) RoutineSession.clear(savedState) else current.saveTo(savedState)
     savedState[KEY_STATUS] = status
+    val now = current?.now() ?: wallClock.now()
+    val nextAt =
+        if (current != null && !current.isDebug) {
+          SessionPlanner.nextRelease(
+              current.routine.wakeAt,
+              routineSettings.sunlightTimes,
+              ZoneId.systemDefault(),
+          )
+        } else {
+          SessionPlanner.nextRelease(
+              now,
+              routineSettings.sunlightTimes,
+              ZoneId.systemDefault(),
+          )
+        }
+    val nextSunlightTime = nextAt?.atZone(ZoneId.systemDefault())?.toLocalTime()
     mutableState.value =
         SunlightScreenState(
-            releaseTime = routineSettings.releaseTime,
+            nextSunlightTime = nextSunlightTime,
             phase = phase ?: FocusPhase.SETUP,
             statusMessage = status,
-            displayNow = current?.now() ?: wallClock.now(),
+            displayNow = now,
             countdownEndsAt = current?.routine?.countdownEndsAt,
             sunlightMinutes = routineSettings.sunlightMinutes,
             debugAvailable = debugAvailable,
@@ -207,6 +256,7 @@ internal class SunlightViewModel(
                     currentStreak =
                         StreakCalculator.currentStreakForToday(savedStreak, LocalDate.now())
                 ),
+            sunlightTimes = routineSettings.sunlightTimes,
         )
     if (completedNormally) {
       viewModelScope.launch { streaks.recordCompletion(LocalDate.now()) }
@@ -241,3 +291,17 @@ private fun phaseNotice(session: RoutineSession): String? =
       FocusPhase.COMPLETE -> "Your morning timer is complete."
       else -> null
     }
+
+private fun latestScheduledTimeDue(
+    wakeAt: Instant,
+    now: Instant,
+    times: List<LocalTime>,
+): Instant? {
+  var latestDue: Instant? = null
+  var next = SessionPlanner.nextRelease(wakeAt, times, ZoneId.systemDefault())
+  while (next != null && !now.isBefore(next)) {
+    latestDue = next
+    next = SessionPlanner.nextRelease(next, times, ZoneId.systemDefault())
+  }
+  return latestDue
+}

@@ -1,6 +1,11 @@
 # Sunlight
 
-Sunlight is an Android morning-routine prototype. The intended experience is a wake-up alarm followed by a user-selected duration of regularly checked sunlight, with only user-allowed apps available until completion and a hold-to-unlock emergency exit. The current preview checks camera brightness once and then runs a timer; alarm ringing, app restrictions, and repeated sunlight checks are not implemented yet.
+Sunlight is an Android morning-routine prototype. The intended experience is a
+schedule of sunlight checks followed by a user-selected timer, with only
+user-allowed apps available until completion and a hold-to-unlock emergency exit.
+The current foreground preview checks camera brightness at each saved daily time;
+alarm ringing, app restrictions, and continuous checks during a timer are not
+implemented yet.
 
 ## Repository map
 
@@ -33,13 +38,34 @@ No `.env` file or backend configuration is required. Do not commit signing keys;
 
 The app is self-contained: it has no accounts, backend, location collection, or network use. Camera frames are analyzed in memory only; it never records, stores, or transmits photos or video. A routine preview consumes battery because the screen stays on. Android system navigation remains available and the app provides a hold-to-exit escape action; it is not a device lock.
 
-On Home, edit your wake-up time and sunlight duration in the same morning panel, then select **Try morning routine**. Duration defaults to 15 minutes and can be set from 1–120 minutes; it is saved locally and cannot change mid-routine. An in-progress routine continues after rotation or if Android recreates the app process; clearing app data or force-stopping the app ends it. The app waits until the configured wake-up time (tomorrow if it has passed) before requesting camera permission or opening the camera. Sustained bright light starts the selected timer, then the camera stops. Bright artificial light can also satisfy this heuristic. No alarm will ring.
+On Home, the morning panel shows only the next upcoming **Sunlight Time** and the
+saved sunlight duration. **Add Sunlight Time** opens Alarms, where the full daily
+schedule can be added to or edited. Times repeat each local day and are saved on
+the device; each Alarms row also has a red trash action for removing that time.
+An existing single wake-up time is migrated into this schedule.
+Duration defaults to 15 minutes and can be set from 1–120 minutes. Select **Try
+morning routine** to start the foreground preview. An in-progress routine continues after rotation or if Android recreates the app process; clearing app data or force-stopping the app ends it. The app waits until the next
+saved time before requesting camera permission or opening the camera. Sustained
+bright light starts the timer and stops the camera. Each later saved time clears
+any timer or partial light reading and requires sunlight again. Bright artificial
+light can also satisfy this heuristic. No alarm will ring.
 
-Debug builds also show **Debug: simulate sunlight**. It starts an immediate, clearly marked test without changing the saved wake-up time or requesting camera permission. Simulated brightness readings pass through the same sustained-light detector and timer transition as real camera frames. Use a one-minute duration to try the whole countdown, completion, and hold-to-exit flow. The test button and its handler are disabled in non-debuggable builds.
+Debug builds also show **Debug: simulate sunlight**. It starts an immediate,
+clearly marked test without changing the saved schedule or requesting camera
+permission. Simulated brightness readings pass through the same sustained-light
+detector and timer transition as real camera frames. Use a one-minute duration to
+try the whole countdown, completion, and hold-to-exit flow. The test button and
+its handler are disabled in non-debuggable builds.
 
 During an active debug test, the **Time speed** slider adjusts simulated time from 1×–100×. Changes apply while dragging, preserving elapsed progress and affecting both light detection and the countdown. Each new test starts at 1×; normal routines always use real time. At 100×, a 15-minute countdown takes about nine real seconds.
 
-The bottom navigation is Home, Blocked apps, Alarms, and Settings, with Settings at the far right. The latter three pages are intentionally blank apart from their titles. Navigation stays visible and the hold-to-exit control remains accessible on every page during an active preview. The preview retains a black background, red text, and dimmed display. See [UI design notes](docs/ui-design.md) for the intended flow, current limitations, and UI test command.
+The bottom navigation is Home, Blocked apps, Alarms, and Settings, with Settings
+at the far right. Alarms manages the daily Sunlight Times; Blocked apps and
+Settings remain placeholders. Navigation stays visible and the hold-to-exit
+control remains accessible on every page during an active preview. The preview
+retains a black background, red text, and dimmed display. See [UI design
+notes](docs/ui-design.md) for the intended flow, current limitations, and UI test
+command.
 
 ## GitHub release setup
 

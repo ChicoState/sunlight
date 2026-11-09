@@ -30,7 +30,8 @@ import androidx.compose.ui.unit.sp
 @Composable
 internal fun MorningRoutinePanel(
     state: SunlightScreenState,
-    onChooseTime: () -> Unit,
+    onManageTimes: () -> Unit,
+    onAddTime: () -> Unit,
     onChooseDuration: () -> Unit,
     onDebugSpeedChange: (Int) -> Unit,
 ) {
@@ -51,13 +52,16 @@ internal fun MorningRoutinePanel(
       DebugSpeedControl(state.debugSpeed, onDebugSpeedChange)
     }
     RoutineSetting(
-        "Wake-up time",
-        state.releaseTime?.let(::displayTime) ?: "Set time",
-        "wake-up-time",
+        "Next Sunlight Time",
+        state.nextSunlightTime?.let(::displayTime) ?: "Set time",
+        "next-sunlight-time",
         !active,
-        onChooseTime,
+        onManageTimes,
         text,
     )
+    if (!active) {
+      RoutineAction("Add Sunlight Time", onAddTime, filled = false)
+    }
     Box(Modifier.fillMaxWidth().height(1.dp).background(SunlightPalette.outline))
     RoutineSetting(
         "Sunlight duration",
@@ -99,7 +103,7 @@ private fun RoutineStatus(state: SunlightScreenState, text: Color, secondary: Co
   }
   RoutineLabel(
       if (active) state.phase.guidance
-      else "Camera stays off until wake-up time. Images are never saved.",
+      else "Camera stays off until the next Sunlight Time. Images are never saved.",
       secondary,
   )
 }

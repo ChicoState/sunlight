@@ -28,7 +28,9 @@ class SunlightViewModelTest {
   private var wallNow = Instant.parse("2026-10-22T05:00:00Z")
   private var elapsedNanos = 0L
   private val wakeAt =
-      SessionPlanner.nextRelease(wallNow, LocalTime.of(7, 0), ZoneId.systemDefault())
+      requireNotNull(
+          SessionPlanner.nextRelease(wallNow, listOf(LocalTime.of(7, 0)), ZoneId.systemDefault())
+      )
 
   private fun settings(minutes: Int = 5): Preferences =
       preferencesOf(
@@ -65,7 +67,7 @@ class SunlightViewModelTest {
   fun `no session means the setup phase and stored settings`() {
     val state = viewModel().state.value
     assertEquals(FocusPhase.SETUP, state.phase)
-    assertEquals(LocalTime.of(7, 0), state.releaseTime)
+    assertEquals(LocalTime.of(7, 0), state.nextSunlightTime)
     assertEquals(5, state.sunlightMinutes)
   }
 
@@ -74,7 +76,7 @@ class SunlightViewModelTest {
     val model = viewModel(store = FakePreferencesDataStore())
     model.startRoutine(debug = false)
     assertEquals(FocusPhase.SETUP, model.state.value.phase)
-    assertEquals("Choose your wake-up time first.", model.state.value.statusMessage)
+    assertEquals("Add at least one Sunlight Time first.", model.state.value.statusMessage)
   }
 
   @Test
@@ -404,8 +406,8 @@ class SunlightViewModelTest {
     val store = FakePreferencesDataStore()
     val model = viewModel(store = store)
     model.saveReleaseTime(LocalTime.of(13, 5))
-    assertEquals(LocalTime.of(13, 5), model.state.value.releaseTime)
-    assertEquals("Wake-up time: 1:05 PM. Try the routine below.", model.state.value.statusMessage)
+    assertEquals(LocalTime.of(13, 5), model.state.value.nextSunlightTime)
+    assertEquals("Sunlight Time saved for 1:05 PM.", model.state.value.statusMessage)
     val stored = runBlocking { SettingsRepository(store).settings.first() }
     assertEquals(LocalTime.of(13, 5), stored.releaseTime)
   }
