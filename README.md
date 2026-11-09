@@ -1,15 +1,10 @@
 # Sunlight
 
-Sunlight is an Android morning-routine prototype. The intended experience is a
-schedule of sunlight checks followed by a user-selected timer, with only
-user-allowed apps available until completion and a hold-to-unlock emergency exit.
-The current foreground preview checks camera brightness at each saved daily time;
-alarm ringing, app restrictions, and continuous checks during a timer are not
-implemented yet.
+Sunlight is an Android morning-routine prototype. The intended experience is a wake-up alarm followed by a user-selected duration of regularly checked sunlight, with selected apps locked until completion and a hold-to-unlock emergency exit. The current preview checks camera brightness once and then runs a timer; alarm ringing and repeated sunlight checks are not implemented yet.
 
 ## Repository map
 
-- `app/` — Android module, Compose UI, foreground camera preview flow, and tests. `SunlightViewModel` owns the routine and its state; `SunlightActivity` hosts the UI, native pickers, and camera ([ADR-003](docs/decisions/ADR-003-routine-state-ownership.md)).
+- `app/` — Android module, Compose UI, foreground camera preview flow, nightly app lock (accessibility service, block screen, alarm/boot receivers), and tests. `SunlightViewModel` owns the routine and its state; `SunlightActivity` hosts the UI, native pickers, and camera ([ADR-003](docs/decisions/ADR-003-routine-state-ownership.md)).
 - `gradle/`, `build.gradle.kts`, and `settings.gradle.kts` — Gradle wrapper and build configuration.
 - `scripts/` — Infrastructure-only smoke test.
 - `Dockerfile` — Reproducible command-line Android build environment.
@@ -36,7 +31,7 @@ No `.env` file or backend configuration is required. Do not commit signing keys;
 | `docker build --tag android-build-env:local .` | Build the pinned Android development image. |
 | `docker run --rm --user root -v "$PWD":/workspace -w /workspace android-build-env:local --no-daemon verify` | Run full verification in Docker. |
 
-The app is self-contained: it has no accounts, backend, location collection, or network use. Camera frames are analyzed in memory only; it never records, stores, or transmits photos or video. A routine preview consumes battery because the screen stays on. Android system navigation remains available and the app provides a hold-to-exit escape action; it is not a device lock.
+The app is self-contained: it has no accounts, backend, location collection, or network use. The app-lock accessibility service reads only the package name of the app coming to the foreground, never screen content. Camera frames are analyzed in memory only; it never records, stores, or transmits photos or video. A routine preview consumes battery because the screen stays on. Android system navigation remains available and the app provides a hold-to-exit escape action; it is not a device lock.
 
 On Home, the morning panel shows only the next upcoming **Sunlight Time** and the
 saved sunlight duration. **Add Sunlight Time** opens Alarms, where the full daily
@@ -59,13 +54,7 @@ its handler are disabled in non-debuggable builds.
 
 During an active debug test, the **Time speed** slider adjusts simulated time from 1×–100×. Changes apply while dragging, preserving elapsed progress and affecting both light detection and the countdown. Each new test starts at 1×; normal routines always use real time. At 100×, a 15-minute countdown takes about nine real seconds.
 
-The bottom navigation is Home, Blocked apps, Alarms, and Settings, with Settings
-at the far right. Alarms manages the daily Sunlight Times; Blocked apps and
-Settings remain placeholders. Navigation stays visible and the hold-to-exit
-control remains accessible on every page during an active preview. The preview
-retains a black background, red text, and dimmed display. See [UI design
-notes](docs/ui-design.md) for the intended flow, current limitations, and UI test
-command.
+The bottom navigation is Home, Blocked apps, Alarms, and Settings, with Settings at the far right. Blocked apps configures the nightly accessibility-service lock; Alarms manages the daily Sunlight Times, and Settings remains a title-only placeholder. Navigation stays visible and the hold-to-exit control remains accessible on every page during an active preview. The preview retains a black background, red text, and dimmed display. See [UI design notes](docs/ui-design.md) for the intended flow, current limitations, and UI test command.
 
 ## GitHub release setup
 

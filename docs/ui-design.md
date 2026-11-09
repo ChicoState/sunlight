@@ -45,9 +45,9 @@ still need definition. Fifteen minutes is the default, not a fixed requirement.
   Display settings. The app cannot enable or configure this system setting itself;
   users may enable it and choose its intensity there.
 - Retain bottom navigation outside scrolling content: Home, Blocked apps, Alarms,
-  Settings. Settings stays farthest right. Alarms manages Sunlight Times; Blocked
-  apps and Settings remain title-only placeholders. Each icon has a text label and
-  tab selection semantics.
+  Settings. Settings stays farthest right. Blocked apps provides nightly-lock
+  controls, Alarms manages the daily schedule, and Settings remains a title-only
+  placeholder. Each icon has a text label and tab selection semantics.
 - Keep the hold-to-exit action fixed above navigation on every page during a
   routine. A tap does not exit; a named accessibility long-press action does.
 - Preserve the charcoal/amber palette, dim red active display, system insets,
@@ -62,14 +62,14 @@ morning panel instead of visually independent time and routine cards.
 label/value/action structure. [Android's permission guidance](https://developer.android.com/training/permissions/requesting)
 recommends requesting permission in context and allowing graceful denial; this
 informs the delayed camera request and explicit retry action. These are layout
-and permission choices, not claims of implementing alarm or blocking behavior.
+and permission choices. App blocking follows ADR-003; no alarm is implemented.
 
 ## Remaining preview limitations
 
 The foreground prototype waits for each selected daily time, checks brightness,
 stops the camera, then runs the chosen timer. A later scheduled time resets that
 timer and requires a new check. Bright artificial light can pass the check. No
-alarm rings, apps are not blocked, and sunlight is not checked continuously
+alarm rings and sunlight is not checked continuously
 between scheduled times. The UI describes this as a preview. See
 [ADR-002](decisions/ADR-002-routine-light-input.md) for shared light-input behavior
 and [ADR-003](decisions/ADR-003-daily-sunlight-times.md) for daily scheduling.
@@ -77,10 +77,20 @@ An active routine survives rotation and process recreation; a partially detected
 light check restarts. [ADR-003](decisions/ADR-003-routine-state-ownership.md) records
 that `SunlightViewModel` owns this state and the Activity only hosts the UI.
 
+Apps selected on Blocked apps are locked from the nightly lock time until a real
+(non-debug) routine reaches its finished state. Ending early or the app being
+killed mid-countdown does not unlock them; restarting the routine waits for the
+next wake-up time, so the emergency unlock is the way out that day. Locking
+needs the accessibility service and is not a device lock: disabling the service,
+uninstalling, split-screen, or picture-in-picture can bypass it.
+
 ## Verification
 
 Run `./gradlew --no-daemon verify` for logic, compilation, and static checks;
 `./gradlew --no-daemon :app:connectedDebugAndroidTest` for picker persistence,
-navigation, custom duration, debug input, waiting behavior, and hold-to-exit.
+navigation, custom duration, debug input, waiting behavior, hold-to-exit, and the
+Blocked apps page and block screen (checkboxes, setup row, frozen edits,
+emergency countdown). Actual blocking of another app needs a device or emulator
+with the accessibility service enabled.
 Visually inspect Home, the duration picker, active timer, small screens, and
 enlarged text. A physical device is still needed to validate the light heuristic.

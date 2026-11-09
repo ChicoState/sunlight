@@ -58,6 +58,8 @@ class SunlightActivity : ComponentActivity() {
   private var overlayPermissionRequested = false
   private var requestOverlayPermissionAfterNightDisplay = false
   private var appInBackground = false
+  private val appLockRepository by lazy { applicationContext.appLockRepository }
+  private var completionRecorded = false
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -66,27 +68,26 @@ class SunlightActivity : ComponentActivity() {
       SunlightScreen(
           state = state,
           onAddSunlightTime = { chooseSunlightTime(null) },
-          onBeginFocus = {
-            viewModel.startRoutine(debug = false)
-            if (viewModel.state.value.phase.isActive()) {
-              requestNightDisplaySetup()
-            }
-          },
+          onBeginFocus = ::beginRoutine,
           onEndSession = viewModel::endSession,
           onChooseDuration = {
-            val current = viewModel.state.value
-            if (!current.phase.isActive()) {
-              showDurationPicker(current.sunlightMinutes, viewModel::saveSunlightMinutes)
+            if (!viewModel.state.value.phase.isActive()) {
+              showDurationPicker(
+                  viewModel.state.value.sunlightMinutes,
+                  viewModel::saveSunlightMinutes,
+              )
             }
           },
           onDebugSunlight = { viewModel.startRoutine(debug = true) },
           onEnableCamera = {
-            if (viewModel.state.value.needsCamera)
-                cameraPermission.launch(Manifest.permission.CAMERA)
+            if (viewModel.state.value.needsCamera) {
+              cameraPermission.launch(Manifest.permission.CAMERA)
+            }
           },
           onDebugSpeedChange = viewModel::changeDebugSpeed,
-          onEditSunlightTime = { time -> chooseSunlightTime(time) },
-          onRemoveSunlightTime = { time -> viewModel.removeSunlightTime(time) },
+          onEditSunlightTime = { chooseSunlightTime(it) },
+          onRemoveSunlightTime = viewModel::removeSunlightTime,
+          blockedAppsPage = { night -> BlockedAppsRoute(night) },
       )
     }
     lifecycleScope.launch {
@@ -102,6 +103,11 @@ class SunlightActivity : ComponentActivity() {
           viewModel.state.collect { state ->
             syncCamera(state)
             syncBlueLightFilter()
+            if (state.phase != FocusPhase.COMPLETE) completionRecorded = false
+            if (state.phase == FocusPhase.COMPLETE && !state.debugMode && !completionRecorded) {
+              completionRecorded = true
+              launch { appLockRepository.recordRoutineCompleted(state.displayNow) }
+            }
           }
         }
       }
@@ -150,6 +156,11 @@ class SunlightActivity : ComponentActivity() {
         .show()
   }
 
+  private fun beginRoutine() {
+    viewModel.startRoutine(debug = false)
+    if (viewModel.state.value.phase.isActive()) requestNightDisplaySetup()
+  }
+
   /**
    * Runs while resumed: camera access is requested and frames analyzed only when state needs it.
    */
@@ -172,6 +183,16 @@ class SunlightActivity : ComponentActivity() {
   private fun stopCamera() {
     sunlightCamera.stop()
     cameraRunning = false
+  }
+
+  private fun syncBlueLightFilter() {
+    val state = viewModel.state.value
+    val authorized = !state.debugMode && Settings.canDrawOverlays(this)
+    if (state.phase.shouldRunBlueLightFilter(authorized, appInBackground)) {
+      BlueLightFilterService.start(this)
+    } else {
+      BlueLightFilterService.stop(this)
+    }
   }
 
   private fun requestOverlayPermissionIfNeeded() {
@@ -209,16 +230,6 @@ class SunlightActivity : ComponentActivity() {
         }
         .setOnCancelListener { requestOverlayPermissionIfNeeded() }
         .show()
-  }
-
-  private fun syncBlueLightFilter() {
-    val state = viewModel.state.value
-    val authorized = !state.debugMode && Settings.canDrawOverlays(this)
-    if (state.phase.shouldRunBlueLightFilter(authorized, appInBackground)) {
-      BlueLightFilterService.start(this)
-    } else {
-      BlueLightFilterService.stop(this)
-    }
   }
 
   private fun applyFocusDisplay(active: Boolean) {

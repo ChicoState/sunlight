@@ -36,7 +36,7 @@ internal enum class FocusPhase(val title: String, val guidance: String) {
   ),
   WAITING(
       "Waiting for the next Sunlight Time.",
-      "Keep Sunlight open for this preview. No alarm will ring and your apps remain available.",
+      "Keep Sunlight open for this preview. No alarm will ring. Locked apps stay locked until your timer finishes.",
   ),
   SEEKING_SUNLIGHT(
       "Find the morning light.",

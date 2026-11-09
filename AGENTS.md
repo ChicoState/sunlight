@@ -2,23 +2,23 @@
 
 ## Project status
 
-This repository has an Android infrastructure foundation and a Compose morning-routine prototype. `infrastructure_plan.md` is the approved source of truth for platform, storage, quality, Docker, CI, and release decisions; revise it with `infra-planner` before changing those decisions. `docs/ui-design.md` records the intended alarm/sunlight/app-restriction flow and the current preview limitations.
+This repository has an Android infrastructure foundation and a Compose morning-routine prototype. `infrastructure_plan.md` is the approved source of truth for platform, storage, quality, Docker, CI, and release decisions; revise it with `infra-planner` before changing those decisions. `docs/ui-design.md` records the intended alarm/sunlight/app-restriction flow and the current preview limitations; `docs/decisions/ADR-003-nightly-app-lock.md` records the nightly app lock.
 
 ## Repository map
 
-- `app/` — Android module and unit/instrumentation tests. `SunlightViewModel` owns routine state (saved in `SavedStateHandle`), `SettingsRepository` wraps DataStore, and `SunlightActivity` is a thin host for Compose UI, native pickers, camera, and window display. See `docs/decisions/ADR-003-routine-state-ownership.md`.
+- `app/` — Android module and unit/instrumentation tests. `SunlightViewModel` owns routine state (saved in `SavedStateHandle`), `SettingsRepository` wraps DataStore, and `SunlightActivity` is a thin host for Compose UI, native pickers, camera, nightly app lock (`AppLock*`, `BlockedApps*`, `AppBlockedActivity`, `InstalledApps.kt`), and window display. See `docs/decisions/ADR-003-routine-state-ownership.md`.
 - `gradle/`, `build.gradle.kts`, `settings.gradle.kts` — Gradle toolchain and version catalog.
 - `scripts/` — infrastructure-only smoke checks.
 - `Dockerfile`, `.dockerignore` — reproducible command-line Android build environment; no services or production image.
 - `.github/workflows/` — pull-request checks and guarded GitHub Release workflow.
 - `README.md` and `infrastructure_plan.md` — developer setup and approved infrastructure decisions.
-- `.agents/skills/` — project skills. No API/backend exists; Android alarms, app restrictions, and continuous sunlight checks during a timer are not implemented.
+- `.agents/skills/` — project skills. No API/backend exists; Android alarms and continuous sunlight checks during a timer are not implemented. Nightly app restrictions exist via an accessibility service (ADR-003).
 
 ## Required workflow
 
 Read `infrastructure_plan.md`, this file, and applicable `.agents/skills/*/SKILL.md` before changing files. Use `infra-planner` for infrastructure decisions, `infra-builder` for planned infrastructure, `frontend-ui-engineering` for UI, `test-driven-development` for behavior changes, `security-and-hardening` for untrusted input or secrets, `ci-cd-and-automation` for workflow changes, `documentation-and-adrs` for material decisions, `code-review-and-quality` before merging, and `git-workflow-and-versioning` for every change.
 
-Do not add product behavior during infrastructure work, alter plan decisions without revising the plan, or commit secrets/signing material/build output. Keep UI claims accurate: the current foreground preview is not an alarm or device lock.
+Do not add product behavior during infrastructure work, alter plan decisions without revising the plan, or commit secrets/signing material/build output. Keep UI claims accurate: the current foreground preview is not an alarm or device lock, and the nightly app lock can be bypassed by disabling its accessibility service.
 
 ## Verification
 
