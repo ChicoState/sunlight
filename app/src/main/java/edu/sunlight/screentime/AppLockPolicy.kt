@@ -128,4 +128,38 @@ internal object AppSelection {
           .filter { isValidPackageName(it) && it in launchable }
           .filterNot { it in protectedPackages || it in BUILT_IN_PROTECTED }
           .toSet()
+
+  /** True when every listed app is selected; an empty list is never "all selected". */
+  fun allSelected(selected: Set<String>, listed: Collection<String>): Boolean =
+      listed.isNotEmpty() && selected.containsAll(listed)
+
+  /** Adds every listed app ([select]) or removes only the listed apps; callers then sanitize. */
+  fun selectAll(selected: Set<String>, listed: Collection<String>, select: Boolean): Set<String> =
+      if (select) selected + listed else selected - listed.toSet()
+}
+
+internal enum class BlockAction {
+  NONE,
+  /** The block screen was just shown for this app; only dismiss the app again. */
+  HOME_ONLY,
+  HOME_AND_BLOCK_SCREEN,
+}
+
+/**
+ * What the accessibility service does when an app comes to the foreground.
+ *
+ * A locked app is always dismissed with the Home global action, so it never stays usable behind the
+ * block screen, even when reopened from Recents or a notification. The block screen itself is
+ * debounced so one launch that emits several window events starts it only once.
+ */
+internal object AppLockEnforcement {
+  const val BLOCK_SCREEN_DEBOUNCE_MILLIS = 750L
+
+  fun action(locked: Boolean, repeatOfLastBlock: Boolean, millisSinceLastBlock: Long): BlockAction =
+      when {
+        !locked -> BlockAction.NONE
+        repeatOfLastBlock && millisSinceLastBlock < BLOCK_SCREEN_DEBOUNCE_MILLIS ->
+            BlockAction.HOME_ONLY
+        else -> BlockAction.HOME_AND_BLOCK_SCREEN
+      }
 }

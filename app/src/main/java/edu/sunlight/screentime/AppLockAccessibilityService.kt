@@ -18,7 +18,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 /**
- * Detects which app comes to the foreground and covers locked apps with [AppBlockedActivity].
+ * Detects which app comes to the foreground and blocks locked apps: it performs the Home global
+ * action to dismiss the app, then shows [AppBlockedActivity] (see [AppLockEnforcement]).
  *
  * It subscribes only to window-state changes and reads only the event's package name; it cannot
  * retrieve window content. Nothing is stored except the lock settings the user chose.
@@ -77,8 +78,6 @@ class AppLockAccessibilityService : AccessibilityService() {
   private fun blockIfLocked(packageName: String) {
     val current = settings
     val elapsed = SystemClock.elapsedRealtime()
-    val justBlocked =
-        packageName == lastBlockedPackage && elapsed - lastBlockedAt < BLOCK_DEBOUNCE_MILLIS
     // Before settings load (just after boot) nothing is blocked; the first emission rechecks.
     val locked =
         current != null &&
@@ -90,7 +89,16 @@ class AppLockAccessibilityService : AccessibilityService() {
                 ZoneId.systemDefault(),
                 protectedPackages,
             )
-    if (locked && !justBlocked) {
+    val action =
+        AppLockEnforcement.action(
+            locked = locked,
+            repeatOfLastBlock = packageName == lastBlockedPackage,
+            millisSinceLastBlock = elapsed - lastBlockedAt,
+        )
+    if (action == BlockAction.NONE) return
+    // Dismiss the locked app itself (not just cover it), the way Home would.
+    performGlobalAction(GLOBAL_ACTION_HOME)
+    if (action == BlockAction.HOME_AND_BLOCK_SCREEN) {
       lastBlockedPackage = packageName
       lastBlockedAt = elapsed
       startActivity(AppBlockedActivity.intent(this, packageName))
@@ -98,7 +106,6 @@ class AppLockAccessibilityService : AccessibilityService() {
   }
 
   internal companion object {
-    private const val BLOCK_DEBOUNCE_MILLIS = 750L
     private var running: WeakReference<AppLockAccessibilityService>? = null
 
     /** Called on the main thread by receivers in this process. */

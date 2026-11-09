@@ -1,4 +1,4 @@
 <resources>
     <string name="app_lock_service_label">Sunlight app lock</string>
-    <string name="app_lock_service_description">Sunlight uses this service to lock the apps you chose on the Blocked apps page, from your nightly lock time until your morning sunlight timer finishes. It only reads the name of the app that comes to the foreground. It cannot read screen content, and nothing leaves your phone. When a locked app opens, Sunlight shows its block screen instead.</string>
+    <string name="app_lock_service_description">Sunlight uses this service to lock the apps you chose on the Blocked apps page, from your nightly lock time until your morning sunlight timer finishes. It only reads the name of the app that comes to the foreground. It cannot read screen content, and nothing leaves your phone. When a locked app opens, Sunlight returns to the home screen and shows its block screen instead.</string>
 </resources>

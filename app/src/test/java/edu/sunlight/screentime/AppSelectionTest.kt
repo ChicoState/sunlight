@@ -54,4 +54,34 @@ class AppSelectionTest {
         AppSelection.sanitize(requested, requested, protected),
     )
   }
+
+  @Test
+  fun `select all adds every listed app and keeps earlier choices`() {
+    val listed = listOf("com.example.chat", "com.example.video")
+    assertEquals(
+        setOf("com.example.keep", "com.example.chat", "com.example.video"),
+        AppSelection.selectAll(setOf("com.example.keep"), listed, select = true),
+    )
+  }
+
+  @Test
+  fun `clear all removes only the listed apps`() {
+    val listed = listOf("com.example.chat", "com.example.video")
+    assertEquals(
+        setOf("com.example.keep"),
+        AppSelection.selectAll(
+            setOf("com.example.keep", "com.example.chat", "com.example.video"),
+            listed,
+            select = false,
+        ),
+    )
+  }
+
+  @Test
+  fun `all selected needs every listed app and at least one app`() {
+    val listed = listOf("com.example.chat", "com.example.video")
+    assertTrue(AppSelection.allSelected(listed.toSet(), listed))
+    assertFalse(AppSelection.allSelected(setOf("com.example.chat"), listed))
+    assertFalse(AppSelection.allSelected(emptySet(), emptyList()))
+  }
 }

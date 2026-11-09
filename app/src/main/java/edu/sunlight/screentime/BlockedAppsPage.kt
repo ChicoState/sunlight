@@ -48,6 +48,8 @@ internal data class BlockedAppsActions(
     val onToggleEnabled: (Boolean) -> Unit = {},
     val onChooseLockTime: () -> Unit = {},
     val onToggleApp: (String, Boolean) -> Unit = { _, _ -> },
+    /** True selects every listed app; false clears them. */
+    val onSelectAll: (Boolean) -> Unit = {},
     val onOpenAccessibilitySettings: () -> Unit = {},
     val onOpenAppInfo: () -> Unit = {},
     val onEmergencyUnlock: () -> Unit = {},
@@ -144,14 +146,17 @@ internal fun BlockedAppsPage(
             secondary,
         )
       }
+      val apps = state.apps
       item {
-        BasicText(
-            "Apps to lock",
-            style = TextStyle(color = primary, fontSize = 18.sp, fontWeight = FontWeight.Medium),
-            modifier = Modifier.semantics { heading() },
+        val listed = apps.orEmpty().map { it.packageName }
+        AppsHeader(
+            allSelected = AppSelection.allSelected(state.settings.packages, listed),
+            enabled = editable && listed.isNotEmpty(),
+            color = primary,
+            accent = accent,
+            onSelectAll = actions.onSelectAll,
         )
       }
-      val apps = state.apps
       if (apps == null) {
         item { RoutineLabel("Loading installed apps…", secondary) }
       } else if (apps.isEmpty()) {
@@ -241,6 +246,39 @@ private fun SettingRow(
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
             ),
+    )
+  }
+}
+
+/** "Apps to lock" heading with a Select all / Clear all text button for the whole list. */
+@Suppress("FunctionNaming", "LongParameterList")
+@Composable
+private fun AppsHeader(
+    allSelected: Boolean,
+    enabled: Boolean,
+    color: Color,
+    accent: Color,
+    onSelectAll: (Boolean) -> Unit,
+) {
+  Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    BasicText(
+        "Apps to lock",
+        style = TextStyle(color = color, fontSize = 18.sp, fontWeight = FontWeight.Medium),
+        modifier = Modifier.weight(1f).semantics { heading() },
+    )
+    BasicText(
+        if (allSelected) "Clear all" else "Select all",
+        style =
+            TextStyle(
+                color = if (enabled) accent else SunlightPalette.outline,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+            ),
+        modifier =
+            Modifier.testTag("select-all-apps")
+                .heightIn(min = 48.dp)
+                .clickable(enabled = enabled, role = Role.Button) { onSelectAll(!allSelected) }
+                .padding(horizontal = 12.dp, vertical = 12.dp),
     )
   }
 }

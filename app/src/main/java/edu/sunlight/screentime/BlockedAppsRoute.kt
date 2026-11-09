@@ -103,6 +103,12 @@ private fun blockedAppsActions(
         val sanitized = AppSelection.sanitize(requested, launchable, emptySet())
         save { repository.setPackages(sanitized, it) }
       },
+      onSelectAll = { select ->
+        val launchable = apps.map { it.packageName }.toSet()
+        val requested = AppSelection.selectAll(current.packages, launchable, select)
+        val sanitized = AppSelection.sanitize(requested, launchable, emptySet())
+        save { repository.setPackages(sanitized, it) }
+      },
       onOpenAccessibilitySettings = {
         context.openSettings(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
       },

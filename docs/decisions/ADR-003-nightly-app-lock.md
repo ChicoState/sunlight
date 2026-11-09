@@ -26,10 +26,20 @@ so Play's accessibility-use policy does not apply.
 
 `AppLockAccessibilityService` subscribes only to `typeWindowStateChanged`, with
 `canRetrieveWindowContent="false"`. It reads only the event's package name. If
-that package is locked, it starts `AppBlockedActivity`, a full-screen Compose
-block screen in its own task. The block screen is an Activity, not an overlay.
-It offers **Go to home screen**, **Open Sunlight**, and the emergency unlock.
-Back goes home rather than returning to the locked app.
+that package is locked, it first performs the accessibility global action
+`GLOBAL_ACTION_HOME`, which dismisses the locked app the way pressing Home
+would, and then starts `AppBlockedActivity`, a full-screen Compose block screen
+in its own task. The block screen is an Activity, not an overlay. It offers
+**Go to home screen**, **Open Sunlight**, and the emergency unlock. Back goes
+home rather than returning to the locked app.
+
+Sending the app home means a locked app never keeps running visibly behind the
+block screen, and reopening it from Recents, a notification or a shortcut is
+dismissed again. The Home action runs on every foreground event for a locked
+app; only the block screen launch is debounced (750 ms per package) so one
+launch that emits several window events starts it once. The pure decision lives
+in `AppLockEnforcement`. Global actions need no extra service flag, so the
+service still cannot read window content.
 
 Why this approach. Events arrive as soon as the app changes, so there is no
 polling and very little battery cost. It needs no foreground service, no

@@ -37,12 +37,15 @@ still need definition. Fifteen minutes is the default, not a fixed requirement.
   "Sunlight app lock" accessibility service is off (with links to Accessibility
   settings and App info), a "Lock apps nightly" switch, a lock time edited with
   the same native TimePicker dialog as wake-up time (default 10:00 PM), and a
-  checkbox list of launchable apps with labels and icons. Sunlight, the phone
+  checkbox list of launchable apps with labels and icons. A Select all button
+  beside the list heading selects every listed app and becomes Clear all once
+  every app is selected. Sunlight, the phone
   app, Settings, and home-screen apps are not listed and are never locked.
   Changes save to the local `app_lock` DataStore and take effect from the next
   lock time. While locked, the controls are disabled and a hold-for-emergency-
   unlock action is shown.
-- A locked app is covered by a full-screen block screen with Go to home screen,
+- A locked app is dismissed with the accessibility Home action and then
+  covered by a full-screen block screen with Go to home screen,
   Open Sunlight, and emergency unlock. Back goes home. Emergency unlock is a
   long-press (or named accessibility action) followed by a 10-second countdown
   that a tap cancels; it is recorded as an emergency, never as a completed

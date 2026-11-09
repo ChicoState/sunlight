@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithTag
@@ -67,6 +68,39 @@ class BlockedAppsPageTest {
   }
 
   @Test
+  fun selectAllRequestsEveryApp() {
+    val requests = mutableListOf<Boolean>()
+    compose.setContent {
+      BlockedAppsPage(
+          state(),
+          night = false,
+          actions = BlockedAppsActions(onSelectAll = { requests += it }),
+      )
+    }
+    compose.onNodeWithTag("select-all-apps").performScrollTo().assertTextEquals("Select all")
+    compose.onNodeWithTag("select-all-apps").performClick()
+    compose.runOnIdle { assertEquals(listOf(true), requests) }
+  }
+
+  @Test
+  fun selectAllBecomesClearAllWhenEveryAppIsSelected() {
+    val requests = mutableListOf<Boolean>()
+    val base = state()
+    val everything =
+        base.copy(settings = base.settings.copy(packages = apps.map { it.packageName }.toSet()))
+    compose.setContent {
+      BlockedAppsPage(
+          everything,
+          night = false,
+          actions = BlockedAppsActions(onSelectAll = { requests += it }),
+      )
+    }
+    compose.onNodeWithTag("select-all-apps").performScrollTo().assertTextEquals("Clear all")
+    compose.onNodeWithTag("select-all-apps").performClick()
+    compose.runOnIdle { assertEquals(listOf(false), requests) }
+  }
+
+  @Test
   fun missingAccessShowsSetupRowWithSettingsLink() {
     var opens = 0
     compose.setContent {
@@ -92,6 +126,7 @@ class BlockedAppsPageTest {
       )
     }
     compose.onNodeWithTag("lock-enabled").assertIsNotEnabled()
+    compose.onNodeWithTag("select-all-apps").performScrollTo().assertIsNotEnabled()
     compose.onNodeWithTag("app-com.example.chat").performScrollTo().assertIsNotEnabled()
     val unlock = compose.onNodeWithTag("emergency-unlock").performScrollTo()
     unlock.performClick()
